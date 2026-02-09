@@ -126,28 +126,18 @@ def generate_chart(
         pad=20,
     )
 
-    # Legend
-    legend = ax.legend(
-        bars,
-        ["Vulkan", "CUDA 13.1"],
-        loc="upper right",
-        fontsize=11,
-        frameon=True,
-        framealpha=0.9,
-        edgecolor="#e1e4e8"
-    )
-    for patch in legend.get_patches():
-        patch.set_facecolor("white")
+    # X-axis labels under bars
+    x_labels = [
+        f"RTX 6000 Linux Vulkan",
+        f"RTX 6000 Linux CUDA 13.1"
+    ]
+    ax.set_xticks(x_pos)
+    ax.set_xticklabels(x_labels, fontsize=11, fontweight="medium")
 
-    # Remove x-axis labels and ticks
-    ax.set_xticks([])
-    ax.set_xlabel("")
-
-    # Add delta annotation - put machine info in subtitle
+    # Add delta annotation - lower position for label space
     trophy = "▲"  # Simple triangle for GitHub font compatibility
-    subtitle_text = f"RTX 6000 on Linux | {gpu_name.split('Server Edition')[0].strip()}"
     ax.text(
-        0.5, -0.22,
+        0.5, -0.28,
         f"{trophy} Vulkan wins by {delta_pct}%"
         if winner == "Vulkan"
         else f"{trophy} CUDA wins by {abs(delta_pct)}%",
@@ -171,9 +161,12 @@ def generate_chart(
 
     # Y-axis formatting
     ax.yaxis.set_major_formatter(mticker.FuncFormatter(lambda x, p: f"{int(x):,}"))
-    ax.set_ylim(0, max(scores) * 1.1)
+    ax.set_ylim(0, max(scores) * 1.2)
 
-    # Save - smaller DPI, higher quality
+    # Rotate x labels for better fit
+    plt.xticks(rotation=0, ha="center")
+
+    # Save - higher DPI, higher quality
     plt.tight_layout()
     plt.savefig(output_path, bbox_inches="tight", facecolor=COLOR_BG, dpi=200)
     plt.close()
