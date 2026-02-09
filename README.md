@@ -49,15 +49,10 @@ docs/                # Notes, methodology, comparisons
 
 ### LocalScore Comparison — Llama 3.2 1B Q4_K_M
 
-```mermaid
-barChart
-    title LocalScore: Llama 3.2 1B Q4_K_M on RTX PRO 6000 Blackwell
-    x-axis Backend
-    y-axis LocalScore
-    "Vulkan" 9277
-    "CUDA 13.1" 8638
-    note: Vulkan wins by 7%
-```
+| Backend | LocalScore | Delta |
+|---------|-----------|-------|
+| Vulkan | **9277** | +7% over CUDA |
+| CUDA 13.1 | 8638 | baseline |
 
 ### Key Findings
 
