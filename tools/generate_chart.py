@@ -7,11 +7,11 @@ from pathlib import Path
 import matplotlib.pyplot as plt
 import matplotlib.ticker as mticker
 
-# Colors matching GitHub theme
-COLOR_VULKAN = "#58a6ff"  # GitHub blue
-COLOR_CUDA = "#f85149"    # GitHub red
-COLOR_BG = "#0d1117"      # GitHub dark
-COLOR_TEXT = "#c9d1d9"    # GitHub text
+# Colors - light background for better readability
+COLOR_VULKAN = "#1f6feb"  # GitHub blue
+COLOR_CUDA = "#da3633"    # GitHub red
+COLOR_BG = "#ffffff"      # White background
+COLOR_TEXT = "#24292f"    # GitHub dark text
 
 # Style settings for pretty charts
 plt.style.use("dark_background")
@@ -80,16 +80,22 @@ def generate_chart(
     delta_pct = round(((vulkan_score - cuda_score) / cuda_score) * 100, 1)
     winner = "Vulkan" if vulkan_score > cuda_score else "CUDA"
 
-    # Create figure
-    fig, ax = plt.subplots(figsize=(10, 6), dpi=150)
+    # Machine info
+    machine_name = vulkan_data.get("system_info", {}).get("cpu_name", "Unknown")
+    gpu_name = vulkan_data.get("accelerator_info", {}).get("name", "Unknown")
 
-    # Data
+    # Create figure - smaller, tighter layout
+    fig, ax = plt.subplots(figsize=(7, 4.5), dpi=100)
+
+    # Data - keep close together
     backends = ["Vulkan", "CUDA 13.1"]
     scores = [vulkan_score, cuda_score]
     colors = [COLOR_VULKAN, COLOR_CUDA]
+    width = 0.6  # Wider bars, closer together
 
-    # Create bars
-    bars = ax.bar(backends, scores, color=colors, edgecolor="#30363d", linewidth=1.5, alpha=0.9)
+    # Create bars - center them
+    x_pos = [0, 1]
+    bars = ax.bar(x_pos, scores, color=colors, edgecolor="#30363d", linewidth=1, width=width, alpha=0.95)
 
     # Style bars
     for bar in bars:
@@ -121,36 +127,37 @@ def generate_chart(
 
     # Add delta annotation
     trophy = "▲"  # Simple triangle for GitHub font compatibility
+    subtitle_text = f"{gpu_name}\n{machine_name}" if gpu_name else machine_name
     ax.text(
-        0.5, -0.15,
+        0.5, -0.18,
         f"{trophy} Vulkan wins by {delta_pct}%"
         if winner == "Vulkan"
         else f"{trophy} CUDA wins by {abs(delta_pct)}%",
         transform=ax.transAxes,
         ha="center",
         va="top",
-        fontsize=12,
+        fontsize=11,
         fontweight="semibold",
-        color="#a5d6ff" if winner == "Vulkan" else "#ff9999",
+        color="#1f6feb" if winner == "Vulkan" else "#da3633",
     )
 
     # Grid (behind bars)
-    ax.yaxis.grid(True, color="#30363d", linestyle="--", alpha=0.3)
+    ax.yaxis.grid(True, color="#e1e4e8", linestyle="--", alpha=0.5)
     ax.set_axisbelow(True)
 
     # Remove spines
     ax.spines["top"].set_visible(False)
     ax.spines["right"].set_visible(False)
-    ax.spines["left"].set_color("#30363d")
-    ax.spines["bottom"].set_color("#30363d")
+    ax.spines["left"].set_color("#e1e4e8")
+    ax.spines["bottom"].set_color("#e1e4e8")
 
     # Y-axis formatting
     ax.yaxis.set_major_formatter(mticker.FuncFormatter(lambda x, p: f"{int(x):,}"))
-    ax.set_ylim(0, max(scores) * 1.15)
+    ax.set_ylim(0, max(scores) * 1.1)
 
     # Save
     plt.tight_layout()
-    plt.savefig(output_path, bbox_inches="tight", facecolor=COLOR_BG, dpi=300)
+    plt.savefig(output_path, bbox_inches="tight", facecolor=COLOR_BG, dpi=150)
     plt.close()
 
     print(f"✅ Chart saved to: {output_path}")
