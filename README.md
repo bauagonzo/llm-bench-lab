@@ -49,6 +49,8 @@ docs/                # Notes, methodology, comparisons
 
 ### LocalScore Comparison — Llama 3.2 1B Q4_K_M
 
+![LocalScore: Llama 3.2 1B Q4_K_M](llama_3.2_1b_q4_k_m_chart.png)
+
 | Backend | LocalScore | Delta |
 |---------|-----------|-------|
 | Vulkan | **9277** | +7% over CUDA |
