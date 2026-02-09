@@ -80,9 +80,10 @@ def generate_chart(
     delta_pct = round(((vulkan_score - cuda_score) / cuda_score) * 100, 1)
     winner = "Vulkan" if vulkan_score > cuda_score else "CUDA"
 
-    # Machine info
-    machine_name = vulkan_data.get("system_info", {}).get("cpu_name", "Unknown")
-    gpu_name = vulkan_data.get("accelerator_info", {}).get("name", "Unknown")
+    # Machine info - simpler, compact
+    gpu_name = vulkan_data.get("accelerator_info", {}).get("name", "Unknown GPU")
+    # Extract machine name from path or use default
+    machine_name = "Linux"
 
     # Create figure - smaller, tighter layout
     fig, ax = plt.subplots(figsize=(7, 4.5), dpi=100)
@@ -125,11 +126,28 @@ def generate_chart(
         pad=20,
     )
 
-    # Add delta annotation
+    # Legend
+    legend = ax.legend(
+        bars,
+        ["Vulkan", "CUDA 13.1"],
+        loc="upper right",
+        fontsize=11,
+        frameon=True,
+        framealpha=0.9,
+        edgecolor="#e1e4e8"
+    )
+    for patch in legend.get_patches():
+        patch.set_facecolor("white")
+
+    # Remove x-axis labels and ticks
+    ax.set_xticks([])
+    ax.set_xlabel("")
+
+    # Add delta annotation - put machine info in subtitle
     trophy = "▲"  # Simple triangle for GitHub font compatibility
-    subtitle_text = f"{gpu_name}\n{machine_name}" if gpu_name else machine_name
+    subtitle_text = f"RTX 6000 on Linux | {gpu_name.split('Server Edition')[0].strip()}"
     ax.text(
-        0.5, -0.18,
+        0.5, -0.22,
         f"{trophy} Vulkan wins by {delta_pct}%"
         if winner == "Vulkan"
         else f"{trophy} CUDA wins by {abs(delta_pct)}%",
@@ -155,9 +173,9 @@ def generate_chart(
     ax.yaxis.set_major_formatter(mticker.FuncFormatter(lambda x, p: f"{int(x):,}"))
     ax.set_ylim(0, max(scores) * 1.1)
 
-    # Save
+    # Save - smaller DPI, higher quality
     plt.tight_layout()
-    plt.savefig(output_path, bbox_inches="tight", facecolor=COLOR_BG, dpi=150)
+    plt.savefig(output_path, bbox_inches="tight", facecolor=COLOR_BG, dpi=200)
     plt.close()
 
     print(f"✅ Chart saved to: {output_path}")
