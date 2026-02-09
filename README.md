@@ -47,6 +47,18 @@ docs/                # Notes, methodology, comparisons
 
 > ⚠️ Qwen3 CUDA run fell back to CPU (46GB model exceeds VRAM). Not a fair GPU comparison.
 
+### LocalScore Comparison — Llama 3.2 1B Q4_K_M
+
+```mermaid
+barChart
+    title LocalScore: Llama 3.2 1B Q4_K_M on RTX PRO 6000 Blackwell
+    x-axis Backend
+    y-axis LocalScore
+    "Vulkan" 9277
+    "CUDA 13.1" 8638
+    note: Vulkan wins by 7%
+```
+
 ### Key Findings
 
 - **Vulkan dominates on Blackwell** across all models tested
