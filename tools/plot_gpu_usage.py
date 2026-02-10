@@ -63,7 +63,7 @@ plt.rcParams.update({
 # ---------- Parsing ----------
 
 def parse_nvidia_csv(filepath: str) -> Tuple[List[dict], List[Tuple[float, str]]]:
-    """Parse nvidia-smi CSV output.
+    """Parse nvidia-smi CSV output, auto-detecting column layout from header.
 
     Returns (rows, markers) where:
         rows   = list of dicts with parsed numeric fields + 'elapsed_s'
@@ -71,7 +71,35 @@ def parse_nvidia_csv(filepath: str) -> Tuple[List[dict], List[Tuple[float, str]]
     """
     rows = []
     markers = []
+    raw_markers = []
     t0 = None
+    col_map = None  # Built from header line
+
+    # Header keyword -> field name mapping
+    HEADER_PATTERNS = {
+        "utilization.gpu": "gpu_util",
+        "utilization.memory": "mem_util",
+        "memory.used": "mem_used",
+        "memory.total": "mem_total",
+        "temperature.gpu": "temperature",
+        "power.draw": "power",
+        "clocks.current.graphics": "sm_clock",
+        "clocks.current.sm": "sm_clock",
+        "clocks.current.memory": "mem_clock",
+        "pcie.link.gen": "pcie_gen",
+        "pcie.link.width": "pcie_width",
+    }
+
+    def _num(s):
+        """Parse a numeric value, stripping units."""
+        s = s.strip()
+        for suffix in (" %", " W", " MiB", " MHz", " C"):
+            if s.endswith(suffix):
+                s = s[:-len(suffix)]
+        s = s.strip()
+        if s in ("[N/A]", "N/A", "[Not Supported]", ""):
+            return None
+        return float(s)
 
     with open(filepath, "r") as f:
         for line in f:
@@ -79,32 +107,44 @@ def parse_nvidia_csv(filepath: str) -> Tuple[List[dict], List[Tuple[float, str]]
             if not line:
                 continue
 
-            # Marker comments from GpuMonitor
+            # Marker comments
             if line.startswith("# MARKER:"):
-                match = re.match(r"# MARKER:\s*(.+?)(?:\s*@\s*(.*))?$", line)
-                if match and t0 is not None:
+                match = re.match(r"# MARKER:\s*(.+?)\s*@\s*(\d{4}/\d{2}/\d{2}\s+\S+)", line)
+                if match:
                     label = match.group(1).strip()
-                    # We don't have a reliable timestamp in the marker,
-                    # so we use the last row's elapsed time
-                    elapsed = rows[-1]["elapsed_s"] if rows else 0
-                    markers.append((elapsed, label))
+                    ts_str = match.group(2).strip()
+                    try:
+                        try:
+                            marker_ts = datetime.strptime(ts_str, "%Y/%m/%d %H:%M:%S.%f")
+                        except ValueError:
+                            marker_ts = datetime.strptime(ts_str, "%Y/%m/%d %H:%M:%S")
+                        raw_markers.append((marker_ts, label))
+                    except ValueError:
+                        pass
                 continue
 
-            # Skip nvidia-smi header line
-            if "timestamp" in line.lower() and "utilization" in line.lower():
-                continue
-            # Skip lines with header-like content (units row)
             if line.startswith("#"):
                 continue
 
-            # Parse CSV data line
+            # Detect header line and build column map
+            if "timestamp" in line.lower() and ("utilization" in line.lower() or "memory" in line.lower()):
+                headers = [h.strip().lower() for h in line.split(",")]
+                col_map = {"timestamp": 0}
+                for i, h in enumerate(headers):
+                    for pattern, field in HEADER_PATTERNS.items():
+                        if pattern in h:
+                            col_map[field] = i
+                            break
+                continue
+
+            # Parse data line
             parts = [p.strip() for p in line.split(",")]
-            if len(parts) < 12:
+            if len(parts) < 5:
                 continue
 
             try:
-                ts_str = parts[0].strip()
-                # nvidia-smi timestamps: "2026/02/09 10:30:15.123"
+                ts_idx = col_map.get("timestamp", 0) if col_map else 0
+                ts_str = parts[ts_idx].strip()
                 try:
                     ts = datetime.strptime(ts_str, "%Y/%m/%d %H:%M:%S.%f")
                 except ValueError:
@@ -115,35 +155,38 @@ def parse_nvidia_csv(filepath: str) -> Tuple[List[dict], List[Tuple[float, str]]
 
                 elapsed = (ts - t0).total_seconds()
 
-                def _num(s):
-                    """Parse a numeric value, stripping units like ' %', ' W', ' MiB', ' MHz'."""
-                    s = s.strip()
-                    # Remove known suffixes
-                    for suffix in (" %", " W", " MiB", " MHz", " C"):
-                        s = s.replace(suffix, "")
-                    s = s.strip()
-                    if s in ("[N/A]", "N/A", "[Not Supported]", ""):
+                def _get(field):
+                    if col_map is None:
                         return None
-                    return float(s)
+                    idx = col_map.get(field)
+                    if idx is None or idx >= len(parts):
+                        return None
+                    return _num(parts[idx])
 
                 row = {
                     "elapsed_s":   elapsed,
                     "timestamp":   ts,
-                    "gpu_util":    _num(parts[2]),
-                    "mem_util":    _num(parts[3]),
-                    "mem_used":    _num(parts[4]),
-                    "mem_total":   _num(parts[5]),
-                    "temperature": _num(parts[6]),
-                    "power":       _num(parts[7]),
-                    "sm_clock":    _num(parts[8]),
-                    "mem_clock":   _num(parts[9]),
-                    "pcie_gen":    _num(parts[10]),
-                    "pcie_width":  _num(parts[11]),
+                    "gpu_util":    _get("gpu_util"),
+                    "mem_util":    _get("mem_util"),
+                    "mem_used":    _get("mem_used"),
+                    "mem_total":   _get("mem_total"),
+                    "power":       _get("power"),
+                    "sm_clock":    _get("sm_clock"),
+                    "mem_clock":   _get("mem_clock"),
+                    "temperature": _get("temperature"),
+                    "pcie_gen":    _get("pcie_gen"),
+                    "pcie_width":  _get("pcie_width"),
                 }
                 rows.append(row)
 
             except (ValueError, IndexError):
-                continue  # skip malformed lines
+                continue
+
+    # Convert raw marker timestamps to elapsed seconds
+    if t0 is not None:
+        for marker_ts, label in raw_markers:
+            elapsed = (marker_ts - t0).total_seconds()
+            markers.append((elapsed, label))
 
     return rows, markers
 
@@ -159,12 +202,17 @@ def plot_gpu_usage(
     metrics: List[str],
     output_path: str,
     title: str = "GPU Usage During Benchmark",
+    power_limit: float = 250.0,
+    power_limit2: float = 600.0,
+    mem_total_mib: float = 97887.0,
 ):
     """Generate a multi-panel time-series chart."""
+    # Dynamic Y-axis: will be computed per-metric from actual data (max + 10%)
+
     n_panels = len(metrics)
     fig, axes = plt.subplots(
         n_panels, 1,
-        figsize=(12, 2.5 * n_panels + 1),
+        figsize=(13, 2.8 * n_panels + 1.2),
         sharex=True,
     )
     if n_panels == 1:
@@ -185,8 +233,27 @@ def plot_gpu_usage(
             continue
 
         vt, vv = zip(*valid)
-        ax.plot(vt, vv, color=color, linewidth=1.2, alpha=0.9)
-        ax.fill_between(vt, vv, alpha=0.08, color=color)
+
+        # Dynamic Y-axis: 0 to max_value * 1.10 (10% headroom)
+        vals = list(vv)
+        max_v = max(vals)
+        min_v = min(vals)
+        avg_v = sum(vals) / len(vals)
+
+        y_lo = 0
+        y_hi = max_v * 1.10 if max_v > 0 else 1
+
+        # For power: ensure threshold lines are visible if close to data range
+        if metric == "power":
+            if power_limit and power_limit <= y_hi * 1.2:
+                y_hi = max(y_hi, power_limit * 1.08)
+            if power_limit2 and power_limit2 <= y_hi * 1.2:
+                y_hi = max(y_hi, power_limit2 * 1.08)
+
+        ax.set_ylim(y_lo, y_hi)
+
+        ax.plot(vt, vv, color=color, linewidth=1.4, alpha=0.9)
+        ax.fill_between(vt, [y_lo] * len(vt), vv, alpha=0.06, color=color)
 
         ax.set_ylabel(label, fontsize=10, fontweight="medium")
         ax.yaxis.grid(True, color=COLOR_GRID, linestyle="--", linewidth=0.6, alpha=0.5)
@@ -194,33 +261,68 @@ def plot_gpu_usage(
         ax.spines["top"].set_visible(False)
         ax.spines["right"].set_visible(False)
 
-        # Add min/max/avg annotation
-        vals = list(vv)
-        avg_v = sum(vals) / len(vals)
-        max_v = max(vals)
-        min_v = min(vals)
-        ax.axhline(avg_v, color=color, linewidth=0.8, linestyle=":", alpha=0.5)
+        # Avg line + stats badge (compact, non-overlapping)
+        ax.axhline(avg_v, color=color, linewidth=0.8, linestyle=":", alpha=0.4)
+        stats_text = f"avg {avg_v:.0f} │ max {max_v:.0f} │ min {min_v:.0f}"
         ax.text(
-            0.99, 0.95,
-            f"avg {avg_v:.0f}  max {max_v:.0f}  min {min_v:.0f}",
+            0.99, 0.92,
+            stats_text,
             transform=ax.transAxes, ha="right", va="top",
-            fontsize=9, color=color, alpha=0.7,
+            fontsize=8.5, color=color, alpha=0.75,
+            bbox=dict(boxstyle="round,pad=0.3", facecolor="white", edgecolor=color, alpha=0.3),
         )
 
-    # Draw markers on all panels
+        # Power threshold lines
+        if metric == "power":
+            if power_limit and power_limit <= y_hi:
+                ax.axhline(power_limit, color="#bf8700", linewidth=1.2, linestyle="--", alpha=0.6)
+                ax.text(
+                    0.01, power_limit, f" TDP {power_limit:.0f}W",
+                    transform=ax.get_yaxis_transform(),
+                    va="bottom", ha="left",
+                    fontsize=8, color="#bf8700", alpha=0.7, fontweight="bold",
+                )
+            if power_limit2 and power_limit2 <= y_hi:
+                ax.axhline(power_limit2, color="#da3633", linewidth=1.2, linestyle="-", alpha=0.6)
+                ax.text(
+                    0.01, power_limit2, f" MAX {power_limit2:.0f}W",
+                    transform=ax.get_yaxis_transform(),
+                    va="bottom", ha="left",
+                    fontsize=8, color="#da3633", alpha=0.7, fontweight="bold",
+                )
+
+    # Draw markers on all panels — deduplicate overlapping labels
+    marker_positions = []
     for elapsed_s, label in markers:
         is_start = label.startswith("START")
         is_error = label.startswith("ERROR")
-        color = "#da3633" if is_error else "#1a7f37" if is_start else "#bf8700"
+        mcolor = "#da3633" if is_error else "#1a7f37" if is_start else "#bf8700"
         for ax in axes:
-            ax.axvline(elapsed_s, color=color, linewidth=0.8, linestyle="--", alpha=0.5)
-        # Label on top panel only
-        short_label = label.replace("START ", "▶ ").replace("END ", "■ ").replace("ERROR ", "✗ ")
-        axes[0].text(
-            elapsed_s, axes[0].get_ylim()[1] * 0.98,
-            short_label, fontsize=7, rotation=90,
-            va="top", ha="right", color=color, alpha=0.7,
-        )
+            ax.axvline(elapsed_s, color=mcolor, linewidth=0.7, linestyle="--", alpha=0.4)
+        marker_positions.append((elapsed_s, label, mcolor))
+
+    # Label markers on top panel, staggering overlaps
+    if marker_positions:
+        top_ax = axes[0]
+        y_top = top_ax.get_ylim()[1]
+        # Sort by x position
+        marker_positions.sort(key=lambda m: m[0])
+        last_x = -999
+        stagger = 0
+        for elapsed_s, label, mcolor in marker_positions:
+            short_label = label.replace("START ", "▶ ").replace("END ", "■ ").replace("ERROR ", "✗ ")
+            # Stagger vertically if markers are close together
+            if abs(elapsed_s - last_x) < (elapsed[-1] - elapsed[0]) * 0.03:
+                stagger = (stagger + 1) % 3
+            else:
+                stagger = 0
+            y_offset = y_top * (0.98 - stagger * 0.15)
+            top_ax.text(
+                elapsed_s, y_offset,
+                short_label, fontsize=6.5, rotation=45,
+                va="top", ha="left", color=mcolor, alpha=0.75,
+            )
+            last_x = elapsed_s
 
     # X-axis label on bottom panel
     axes[-1].set_xlabel("Elapsed Time (s)", fontsize=11)
@@ -252,6 +354,21 @@ def main():
              "Available: gpu_util, mem_util, power, temperature, mem_used, sm_clock, mem_clock",
     )
     p.add_argument("--title", "-t", default=None, help="Chart title")
+    p.add_argument(
+        "--power-limit", "-p",
+        type=float, default=250.0,
+        help="TDP threshold line in watts (default: 250W). Set 0 to disable.",
+    )
+    p.add_argument(
+        "--power-limit2",
+        type=float, default=600.0,
+        help="Max power threshold line in watts (default: 600W). Set 0 to disable.",
+    )
+    p.add_argument(
+        "--mem-total",
+        type=float, default=97887.0,
+        help="Total GPU memory in MiB for Y-axis scale (default: 97887 = ~96GB).",
+    )
     args = p.parse_args()
 
     csv_path = Path(args.csv_file)
@@ -265,11 +382,15 @@ def main():
 
     rows, markers = parse_nvidia_csv(str(csv_path))
     if not rows:
+        print(f"DEBUG ERROR: no valid data rows", file=sys.stderr)
         print(f"Error: no valid data rows in {csv_path}", file=sys.stderr)
         sys.exit(1)
 
     print(f"Parsed {len(rows)} samples, {len(markers)} markers from {csv_path}")
-    plot_gpu_usage(rows, markers, metrics, output, title=title)
+    plot_gpu_usage(rows, markers, metrics, output, title=title,
+                   power_limit=args.power_limit or None,
+                   power_limit2=args.power_limit2 or None,
+                   mem_total_mib=args.mem_total)
 
 
 if __name__ == "__main__":

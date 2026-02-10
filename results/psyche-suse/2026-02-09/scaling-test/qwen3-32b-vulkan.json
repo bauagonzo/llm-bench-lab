@@ -1,0 +1,119 @@
+{
+  "runtime_info": {
+    "name": "llamafile",
+    "version": "1.0.0-llama-bench",
+    "commit": "8872ad212"
+  },
+  "system_info": {
+    "cpu_name": "AMD Ryzen 7 9800X3D 8-Core Processor",
+    "cpu_arch": "x86_64",
+    "ram_gb": 60.44,
+    "kernel_type": "Linux",
+    "kernel_release": "6.18.8-1-default",
+    "version": "#1 SMP PREEMPT_DYNAMIC Fri Jan 30 12:17:19 UTC 2026 (0df318e)"
+  },
+  "accelerator_info": {
+    "name": "NVIDIA RTX PRO 6000 Blackwell Server Edition",
+    "manufacturer": "NVIDIA",
+    "memory_gb": 0.0,
+    "type": "GPU"
+  },
+  "results": [
+    {
+      "build_commit": "8872ad212",
+      "build_number": 7966,
+      "model_name": "qwen3",
+      "model_quant_str": "Medium",
+      "model_params_str": "",
+      "model_filename": "/home/coulof/models/Qwen3-32B-Q4_K_M.gguf",
+      "model_type": "qwen3 32B Q4_K - Medium",
+      "model_size": 19756174336,
+      "model_n_params": 32762123264,
+      "n_prompt": 1024,
+      "n_gen": 16,
+      "test_time": "",
+      "avg_time_ms": 643.360618,
+      "stddev_time_ms": 0,
+      "prompt_tps": 2754.868072,
+      "prompt_tps_watt": 0.0,
+      "prompt_tps_stddev": 0.0,
+      "gen_tps": 58.89824,
+      "gen_tps_watt": 0.0,
+      "gen_tps_stddev": 0.0,
+      "name": "pp1024+tg16",
+      "power_watts": 0.0,
+      "ttft_ms": 388.68407612500005,
+      "main_gpu": 0,
+      "samples_ns": [
+        371705640,
+        271654978
+      ]
+    },
+    {
+      "build_commit": "8872ad212",
+      "build_number": 7966,
+      "model_name": "qwen3",
+      "model_quant_str": "Medium",
+      "model_params_str": "",
+      "model_filename": "/home/coulof/models/Qwen3-32B-Q4_K_M.gguf",
+      "model_type": "qwen3 32B Q4_K - Medium",
+      "model_size": 19756174336,
+      "model_n_params": 32762123264,
+      "n_prompt": 1024,
+      "n_gen": 1024,
+      "test_time": "",
+      "avg_time_ms": 18167.20778,
+      "stddev_time_ms": 0,
+      "prompt_tps": 2755.020022,
+      "prompt_tps_watt": 0.0,
+      "prompt_tps_stddev": 0.0,
+      "gen_tps": 57.542564,
+      "gen_tps_watt": 0.0,
+      "gen_tps_stddev": 0.0,
+      "name": "pp1024+tg1024",
+      "power_watts": 0.0,
+      "ttft_ms": 389.06357907910154,
+      "main_gpu": 0,
+      "samples_ns": [
+        371685139,
+        17795522641
+      ]
+    },
+    {
+      "build_commit": "8872ad212",
+      "build_number": 7966,
+      "model_name": "qwen3",
+      "model_quant_str": "Medium",
+      "model_params_str": "",
+      "model_filename": "/home/coulof/models/Qwen3-32B-Q4_K_M.gguf",
+      "model_type": "qwen3 32B Q4_K - Medium",
+      "model_size": 19756174336,
+      "model_n_params": 32762123264,
+      "n_prompt": 16,
+      "n_gen": 1536,
+      "test_time": "",
+      "avg_time_ms": 26901.315025,
+      "stddev_time_ms": 0,
+      "prompt_tps": 358.067591,
+      "prompt_tps_watt": 0.0,
+      "prompt_tps_stddev": 0.0,
+      "gen_tps": 57.19258,
+      "gen_tps_watt": 0.0,
+      "gen_tps_stddev": 0.0,
+      "name": "pp16+tg1536",
+      "power_watts": 0.0,
+      "ttft_ms": 62.169086627604166,
+      "main_gpu": 0,
+      "samples_ns": [
+        44684301,
+        26856630724
+      ]
+    }
+  ],
+  "results_summary": {
+    "avg_prompt_tps": 1955.9852283333337,
+    "avg_gen_tps": 57.87779466666667,
+    "avg_ttft_ms": 279.9722472772352,
+    "performance_score": 739.4705014228209
+  }
+}
