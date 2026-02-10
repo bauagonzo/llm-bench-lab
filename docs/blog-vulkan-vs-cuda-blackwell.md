@@ -17,6 +17,18 @@ We benchmarked 10 LLM models (1B to 123B parameters) on NVIDIA's new Blackwell a
 
 ---
 
+## CUDA vs Vulkan: A Quick Primer
+
+Before diving into the numbers, a quick explainer on the two GPU compute paths we're comparing.
+
+**[CUDA](https://developer.nvidia.com/cuda-toolkit)** is NVIDIA's proprietary parallel computing platform. It only runs on NVIDIA GPUs, but because NVIDIA dominates the AI hardware market, CUDA has become the default backend for virtually all ML frameworks. It's mature, heavily optimized, and benefits from over 15 years of tooling. When someone says "GPU acceleration," they usually mean CUDA.
+
+**[Vulkan](https://www.vulkan.org/)** is an open, cross-platform graphics and compute API maintained by the [Khronos Group](https://www.khronos.org/vulkan/). It runs on NVIDIA, AMD, Intel, and even mobile GPUs. Originally designed for games, Vulkan has gained compute capabilities that make it viable for LLM inference. The key recent addition for AI workloads is **cooperative matrix operations** ([VK_NV_cooperative_matrix2](https://registry.khronos.org/vulkan/specs/latest/man/html/VK_NV_cooperative_matrix2.html)), which NVIDIA added for Blackwell. This is what makes Vulkan competitive with CUDA for matrix-heavy LLM inference.
+
+**Why this matters:** if Vulkan can match or beat CUDA on NVIDIA hardware, it changes the game. The same llama.cpp binary could run fast on NVIDIA *and* AMD *and* Intel, without maintaining separate backends. That's the promise — let's see if the numbers back it up.
+
+---
+
 ## The Setup
 
 | Component | Detail |
