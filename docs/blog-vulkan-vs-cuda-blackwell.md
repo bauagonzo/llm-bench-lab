@@ -166,29 +166,98 @@ Vulkan didn't hit this on the same model because it ran at lower power (avg 324W
 
 ---
 
-## What's Next
+## Update: Windows CUDA Results and Multi-Run Analysis (February 11)
 
-We're running the same test suite on Windows tomorrow (same hardware) to answer:
-- Does Windows Vulkan have the same coopmat2 optimizations?
-- Do the PCIe crashes reproduce under Windows drivers?
-- Is the Mistral Nemo anomaly OS-specific or architecture-specific?
+We ran the same models on the same hardware under Windows 11 (CUDA 13.1, driver 582.32) and conducted repeated Linux CUDA runs (3 iterations per model) to measure consistency.
 
-Results will be published in the same repo.
+### Windows CUDA Performance
+
+Windows testing used localscore-bench through WSL2 (Fedora 42). Early runs (1-3) silently fell back to CPU due to a driver/permission issue. Runs 4-7 used the GPU properly. We report only the valid GPU runs below.
+
+| Model | Params | Windows PP | Windows TG | Linux PP | Linux TG | Notes |
+|-------|--------|------------|------------|----------|----------|-------|
+| Llama 3.2 1B | 1.2B | 30,764 | 774 | 3,348 | 114 | See note below |
+| Gemma 3 1B | 1.0B | 27,952 | 517 | 3,273 | 74 | See note below |
+| Phi-4 Mini | 3.8B | 14,631 | 320 | 1,490 | 49 | See note below |
+| Ministral 8B | 8.0B | 7,767 | 172 | 1,086 | 35 | See note below |
+| Gemma 3 12B | 11.8B | 2,662 | 34 | 5,729 | 123 | Windows inconsistent |
+| Mistral Nemo 12B | 12.2B | 669 | 26 | 576 | 25 | Both low (CUDA bug) |
+| Qwen3 32B | 32.8B | 2,202 | 59 | 2,221 | 41 | Comparable PP |
+
+> **Important caveat on the Linux small model numbers:** The Linux CUDA results for models up to 8B from February 9 appear to have suffered from the same "video group" CPU fallback issue we documented earlier. Separate Linux CUDA runs on February 11 using llama-bench (pp512 test) show llama-3.2-1b at 49,329 PP and 836 TG, which exceeds the Windows numbers. The February 9 localscore-bench comparison should not be read as "Windows is 9x faster than Linux." Both OSes achieve similar GPU performance when CUDA is properly configured.
+
+**Key observations:**
+- For 12B+ models, Windows CUDA performance was erratic. Gemma 3 12B ranged from PP=75 (CPU fallback) to PP=7,736 across runs.
+- Mistral Nemo 12B stayed slow on both OSes under CUDA, confirming the Blackwell CUDA kernel gap is not OS-specific.
+- Qwen3 32B completed one good Windows run (PP=2,202, TG=59) before the GPU crashed. This matches the Linux CUDA result almost exactly.
+- Llama 3.3 70B never achieved GPU-level performance on Windows. All runs showed PP=12, TG=1.2, suggesting complete CPU fallback at this model size under WSL2.
+
+### Multi-Run Consistency (Linux CUDA, February 11)
+
+We ran each model 3 times sequentially using llama-bench (pp512, tg128) to measure variance and thermal effects.
+
+**Small and medium models (1B to 12B): Rock solid.**
+
+| Model | Run 1 PP | Run 2 PP | Run 3 PP | Variance |
+|-------|----------|----------|----------|----------|
+| Llama 3.2 1B | 49,329 | 49,299 | 47,975 | <3% |
+| Gemma 3 1B | 47,925 | 47,924 | 47,924 | <0.01% |
+| Phi-4 Mini 3.8B | 19,917 | 19,668 | 19,626 | <1.5% |
+| Ministral 8B | 10,692 | 10,665 | 10,667 | <0.3% |
+| Gemma 3 12B | 7,668 | 7,608 | 7,596 | <1% |
+| Mistral Nemo 12B | 8,004 | 8,000 | 7,984 | <0.3% |
+
+Token generation showed the same consistency: Mistral Nemo 12B held 143.3, 143.7, and 142.6 t/s across all three runs. These numbers are reliable.
+
+**Large models (32B+): Severe degradation after run 1.**
+
+| Model | Run 1 PP | Run 2 PP | Run 3 PP | Run 1 TG | Run 2 TG | Run 3 TG |
+|-------|----------|----------|----------|----------|----------|----------|
+| Qwen3 32B | 2,865 | 249 | 249 | 59.4 | 10.1 | 6.3 |
+| Llama 3.3 70B | 1,125 | 123 | CRASH | 15.0 | 5.3 | CRASH |
+
+Run 1 delivered expected performance. Run 2 dropped to roughly 10% of run 1 speed, consistent with the GPU falling back to a degraded state or severe thermal throttling. Run 3 of the 70B model crashed the GPU entirely.
+
+**What this tells us:** Sequential benchmarking of 32B+ models without cool-down periods causes cumulative thermal damage to performance. A single run produces reliable numbers. Back-to-back runs do not. If you need multiple measurements of large models, allow the GPU to cool between runs.
+
+### Updated GPU Crash Tally
+
+The crash pattern now spans both backends and both operating systems:
+
+| # | OS | Backend | Model | Trigger |
+|---|----|---------|-------|---------|
+| 1 | Linux | Vulkan | GPT-OSS 20B | Sustained TG |
+| 2 | Linux | Vulkan | Llama 3.3 70B | Sustained TG |
+| 3 | Linux | Vulkan | Llama 3.3 70B | Sustained TG |
+| 4 | Windows | CUDA | Llama 3.3 70B | Sustained TG |
+| 5 | Linux | CUDA | Llama 3.3 70B | Sequential run 3 |
+
+The original blog post framed this as "Vulkan crashes, CUDA doesn't." That was premature. With more data, the pattern is clearer: **the 70B model stresses this GPU beyond its stability limits regardless of backend or OS.** The RTX PRO 6000 can load and run the model, but sustained generation or back-to-back runs trigger PCIe-level failures that require a full reboot to recover.
+
+Vulkan triggers the crash faster (sometimes on the first run), while CUDA survives longer before failing. This may relate to Vulkan's different memory access patterns or power management behavior rather than a fundamental Vulkan bug.
+
+### Revised Recommendations
+
+Based on the full Linux + Windows dataset:
+
+**For models up to 12B:**
+- Use CUDA on either OS. Performance is consistent and reliable.
+- Exception: Mistral Nemo 12B still runs dramatically faster on Vulkan (8.3x). This CUDA kernel gap affects both Linux and Windows identically.
+
+**For 32B models:**
+- First-run performance is nearly identical between Vulkan and CUDA for prompt processing.
+- Vulkan still wins token generation (+41% on Qwen3 32B).
+- Allow cool-down time between benchmark iterations.
+
+**For 70B+ models:**
+- Expect instability on the RTX PRO 6000. Both backends crash eventually.
+- If you must run 70B, use CUDA for better crash resistance and keep generation lengths short.
+- Do not run back-to-back benchmark iterations.
+
+**For cross-OS deployments:**
+- Linux and Windows achieve comparable CUDA performance when properly configured.
+- Watch for silent CPU fallback on both OSes (video group on Linux, driver permissions on Windows/WSL2).
 
 ---
 
-*Benchmarks by Ratatosk Noir & Veðr Vert. Raw data, scripts, and GPU monitoring charts available at [github.com/bauagonzo/llm-bench-lab](https://github.com/bauagonzo/llm-bench-lab).*
-
----
-
-## Recommended Charts for Publication
-
-The following charts from the results directory best illustrate the blog post's key findings:
-
-1. **`mistral-nemo-12b-cuda13.png`** + **`mistral-nemo-12b-vulkan.png`** — Side by side, these tell the Nemo anomaly story. The power draw difference is immediately visible.
-
-2. **`qwen3-32b-cuda13.png`** + **`qwen3-32b-vulkan.png`** — Shows both the thermal throttle cliff (CUDA) and Vulkan's steady performance. The power/temp panels are the key.
-
-3. **`llama-3.3-70b-vulkan.png`** — The GPU crash signature. Temperature climbing to 104°C while power flatlines — visually dramatic.
-
-4. **(Suggested: create)** A summary bar chart comparing PP and TG across all models, both backends. This would be the hero image. Can be generated from the JSON data with matplotlib.
+*Benchmarks by Ratatosk Noir and Vedr Vert. Raw data, scripts, and GPU monitoring charts available at [github.com/bauagonzo/llm-bench-lab](https://github.com/bauagonzo/llm-bench-lab).*
