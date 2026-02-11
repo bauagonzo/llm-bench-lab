@@ -1,0 +1,119 @@
+{
+  "runtime_info": {
+    "name": "llamafile",
+    "version": "1.0.0-llama-bench",
+    "commit": "8872ad212"
+  },
+  "system_info": {
+    "cpu_name": "AMD Ryzen 7 9800X3D 8-Core Processor           ",
+    "cpu_arch": "AMD64",
+    "ram_gb": 61.61,
+    "kernel_type": "Windows",
+    "kernel_release": "11",
+    "version": "10.0.26200"
+  },
+  "accelerator_info": {
+    "name": "NVIDIA RTX PRO 6000 Blackwell Server Edition",
+    "manufacturer": "NVIDIA",
+    "memory_gb": 0.0,
+    "type": "GPU"
+  },
+  "results": [
+    {
+      "build_commit": "8872ad212",
+      "build_number": 7966,
+      "model_name": "llama",
+      "model_quant_str": "Medium",
+      "model_params_str": "",
+      "model_filename": "D:\\models\\Mistral-Nemo-Instruct-2407-Q4_K_M.gguf",
+      "model_type": "llama 13B Q4_K - Medium",
+      "model_size": 7469322240,
+      "model_n_params": 12247782400,
+      "n_prompt": 1024,
+      "n_gen": 16,
+      "test_time": "",
+      "avg_time_ms": 1941.3007,
+      "stddev_time_ms": 0,
+      "prompt_tps": 763.59336,
+      "prompt_tps_watt": 0.0,
+      "prompt_tps_stddev": 0.0,
+      "gen_tps": 26.654548,
+      "gen_tps_watt": 0.0,
+      "gen_tps_stddev": 0.0,
+      "name": "pp1024+tg16",
+      "power_watts": 0.0,
+      "ttft_ms": 1378.54495,
+      "main_gpu": 0,
+      "samples_ns": [
+        1341027900,
+        600272800
+      ]
+    },
+    {
+      "build_commit": "8872ad212",
+      "build_number": 7966,
+      "model_name": "llama",
+      "model_quant_str": "Medium",
+      "model_params_str": "",
+      "model_filename": "D:\\models\\Mistral-Nemo-Instruct-2407-Q4_K_M.gguf",
+      "model_type": "llama 13B Q4_K - Medium",
+      "model_size": 7469322240,
+      "model_n_params": 12247782400,
+      "n_prompt": 1024,
+      "n_gen": 1024,
+      "test_time": "",
+      "avg_time_ms": 40808.8888,
+      "stddev_time_ms": 0,
+      "prompt_tps": 763.613005,
+      "prompt_tps_watt": 0.0,
+      "prompt_tps_stddev": 0.0,
+      "gen_tps": 25.945138,
+      "gen_tps_watt": 0.0,
+      "gen_tps_stddev": 0.0,
+      "name": "pp1024+tg1024",
+      "power_watts": 0.0,
+      "ttft_ms": 1379.5362666015626,
+      "main_gpu": 0,
+      "samples_ns": [
+        1340993400,
+        39467895400
+      ]
+    },
+    {
+      "build_commit": "8872ad212",
+      "build_number": 7966,
+      "model_name": "llama",
+      "model_quant_str": "Medium",
+      "model_params_str": "",
+      "model_filename": "D:\\models\\Mistral-Nemo-Instruct-2407-Q4_K_M.gguf",
+      "model_type": "llama 13B Q4_K - Medium",
+      "model_size": 7469322240,
+      "model_n_params": 12247782400,
+      "n_prompt": 16,
+      "n_gen": 1536,
+      "test_time": "",
+      "avg_time_ms": 59737.1611,
+      "stddev_time_ms": 0,
+      "prompt_tps": 197.382218,
+      "prompt_tps_watt": 0.0,
+      "prompt_tps_stddev": 0.0,
+      "gen_tps": 25.747576,
+      "gen_tps_watt": 0.0,
+      "gen_tps_stddev": 0.0,
+      "name": "pp16+tg1536",
+      "power_watts": 0.0,
+      "ttft_ms": 119.8996068359375,
+      "main_gpu": 0,
+      "samples_ns": [
+        81061000,
+        59656100100
+      ]
+    }
+  ],
+  "results_summary": {
+    "avg_prompt_tps": 574.862861,
+    "avg_gen_tps": 26.115754,
+    "avg_ttft_ms": 959.3269411458333,
+    "performance_score": 250.13054342846587
+  }
+}

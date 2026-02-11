@@ -17,3 +17,5 @@ Thumbs.db
 *~
 .idea/
 .vscode/
+localscore-bench
+.claude/
