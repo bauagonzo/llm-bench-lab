@@ -1,14 +1,24 @@
-# run-all-scaling.ps1 — Run all scaling test models (smallest first)
+# run-all-scaling.ps1 - Run all scaling test models (smallest first)
 # Usage: .\run-all-scaling.ps1 -ModelsDir D:\models [-Mode both|vulkan|cuda] [-StartFrom <number>]
 param(
     [Parameter(Mandatory)][string]$ModelsDir,
     [ValidateSet("both","vulkan","cuda")][string]$Mode = "both",
-    [int]$StartFrom = 1
+    [int]$StartFrom = 1,
+    [string]$RunName = ""
 )
 
 $ErrorActionPreference = "Stop"
 
-# Model list — ordered smallest to largest (crash-safe order)
+# Auto-detect run name if not provided
+if ($RunName -eq "") {
+    $DateStr = Get-Date -Format "yyyy-MM-dd"
+    $BaseDir = "$PSScriptRoot\..\results\psyche-win"
+    $existing = @(Get-ChildItem -Path $BaseDir -Directory -Filter "${DateStr}_run*_${Mode}" -ErrorAction SilentlyContinue)
+    $RunName = "run$($existing.Count + 1)"
+    Write-Host "Auto-detected run name: $RunName" -ForegroundColor Cyan
+}
+
+# Model list - ordered smallest to largest (crash-safe order)
 $models = @(
     @{ Num=1;  Name="gemma-3-1b";       File="gemma-3-1b-it-Q4_K_M.gguf" }
     @{ Num=2;  Name="llama-3.2-1b";     File="Llama-3.2-1B-Instruct-Q4_K_M.gguf" }
@@ -51,12 +61,34 @@ foreach ($m in $models) {
     Write-Host "  [$($m.Num)/8] $($m.Name)" -ForegroundColor Magenta
     Write-Host ("*" * 60) -ForegroundColor Magenta
 
+    # GPU health check before each model
     try {
-        & "$PSScriptRoot\run-scaling-test.ps1" -ModelPath $modelPath -OutputName $m.Name -Mode $Mode
-        $passed += $m.Name
+        $smiOut = & nvidia-smi --query-gpu=gpu_name,temperature.gpu,power.draw --format=csv,noheader 2>&1
+        if ($LASTEXITCODE -ne 0 -or "$smiOut" -match "GPU is lost|Unknown Error|ERR!") {
+            Write-Host "FATAL: GPU is dead/lost before $($m.Name). Aborting entire run." -ForegroundColor Red
+            Write-Host "  nvidia-smi output: $smiOut" -ForegroundColor Red
+            $failed += $m.Name
+            break
+        }
+        Write-Host "  GPU OK: $($smiOut.Trim())" -ForegroundColor DarkGray
     }
     catch {
-        Write-Host "FAILED: $($m.Name) — $($_.Exception.Message)" -ForegroundColor Red
+        Write-Host "FATAL: nvidia-smi failed before $($m.Name). Aborting." -ForegroundColor Red
+        $failed += $m.Name
+        break
+    }
+
+    try {
+        & "$PSScriptRoot\run-scaling-test.ps1" -ModelPath $modelPath -OutputName $m.Name -Mode $Mode -RunName $RunName
+        if ($LASTEXITCODE -ne 0) {
+            Write-Host "WARNING: run-scaling-test.ps1 exited with code $LASTEXITCODE for $($m.Name)" -ForegroundColor Yellow
+            $failed += $m.Name
+        } else {
+            $passed += $m.Name
+        }
+    }
+    catch {
+        Write-Host "FAILED: $($m.Name) - $($_.Exception.Message)" -ForegroundColor Red
         $failed += $m.Name
     }
 }
@@ -66,12 +98,13 @@ Write-Host ""
 Write-Host ("=" * 60) -ForegroundColor Cyan
 Write-Host "  SUMMARY" -ForegroundColor Cyan
 Write-Host ("=" * 60) -ForegroundColor Cyan
-Write-Host "Passed:  $($passed.Count)/8 — $($passed -join ', ')" -ForegroundColor Green
+Write-Host "Passed:  $($passed.Count)/8 -$($passed -join ', ')" -ForegroundColor Green
 if ($skipped.Count -gt 0) {
-    Write-Host "Skipped: $($skipped.Count) — $($skipped -join ', ')" -ForegroundColor Yellow
+    Write-Host "Skipped: $($skipped.Count) -$($skipped -join ', ')" -ForegroundColor Yellow
 }
 if ($failed.Count -gt 0) {
-    Write-Host "Failed:  $($failed.Count) — $($failed -join ', ')" -ForegroundColor Red
+    Write-Host "Failed:  $($failed.Count) -$($failed -join ', ')" -ForegroundColor Red
 }
 Write-Host ""
-Write-Host "Results in: tools\..\results\psyche-win\2026-02-11\scaling-test\" -ForegroundColor Cyan
+$DateStr = Get-Date -Format "yyyy-MM-dd"
+Write-Host "Results in: results\psyche-win\${DateStr}_${RunName}_${Mode}\scaling-test\" -ForegroundColor Cyan

@@ -1,0 +1,119 @@
+{
+  "runtime_info": {
+    "name": "llamafile",
+    "version": "1.0.0-llama-bench",
+    "commit": "8872ad212"
+  },
+  "system_info": {
+    "cpu_name": "AMD Ryzen 7 9800X3D 8-Core Processor           ",
+    "cpu_arch": "AMD64",
+    "ram_gb": 61.61,
+    "kernel_type": "Windows",
+    "kernel_release": "11",
+    "version": "10.0.26200"
+  },
+  "accelerator_info": {
+    "name": "CPU",
+    "manufacturer": "Unknown",
+    "memory_gb": 0.0,
+    "type": "CPU"
+  },
+  "results": [
+    {
+      "build_commit": "8872ad212",
+      "build_number": 7966,
+      "model_name": "gemma3",
+      "model_quant_str": "Medium",
+      "model_params_str": "",
+      "model_filename": "D:\\models\\gemma-3-12b-it-Q4_K_M.gguf",
+      "model_type": "gemma3 12B Q4_K - Medium",
+      "model_size": 7294024704,
+      "model_n_params": 11765788416,
+      "n_prompt": 1024,
+      "n_gen": 16,
+      "test_time": "",
+      "avg_time_ms": 15893.0581,
+      "stddev_time_ms": 0,
+      "prompt_tps": 76.850745,
+      "prompt_tps_watt": 0.0,
+      "prompt_tps_stddev": 0.0,
+      "gen_tps": 6.229247,
+      "gen_tps_watt": 0.0,
+      "gen_tps_stddev": 0.0,
+      "name": "pp1024+tg16",
+      "power_watts": 0.0,
+      "ttft_ms": 13485.06235,
+      "main_gpu": 0,
+      "samples_ns": [
+        13324529300,
+        2568528800
+      ]
+    },
+    {
+      "build_commit": "8872ad212",
+      "build_number": 7966,
+      "model_name": "gemma3",
+      "model_quant_str": "Medium",
+      "model_params_str": "",
+      "model_filename": "D:\\models\\gemma-3-12b-it-Q4_K_M.gguf",
+      "model_type": "gemma3 12B Q4_K - Medium",
+      "model_size": 7294024704,
+      "model_n_params": 11765788416,
+      "n_prompt": 1024,
+      "n_gen": 1024,
+      "test_time": "",
+      "avg_time_ms": 168885.1616,
+      "stddev_time_ms": 0,
+      "prompt_tps": 77.908995,
+      "prompt_tps_watt": 0.0,
+      "prompt_tps_stddev": 0.0,
+      "gen_tps": 6.574993,
+      "gen_tps_watt": 0.0,
+      "gen_tps_stddev": 0.0,
+      "name": "pp1024+tg1024",
+      "power_watts": 0.0,
+      "ttft_ms": 13295.631527246094,
+      "main_gpu": 0,
+      "samples_ns": [
+        13143540100,
+        155741621500
+      ]
+    },
+    {
+      "build_commit": "8872ad212",
+      "build_number": 7966,
+      "model_name": "gemma3",
+      "model_quant_str": "Medium",
+      "model_params_str": "",
+      "model_filename": "D:\\models\\gemma-3-12b-it-Q4_K_M.gguf",
+      "model_type": "gemma3 12B Q4_K - Medium",
+      "model_size": 7294024704,
+      "model_n_params": 11765788416,
+      "n_prompt": 16,
+      "n_gen": 1536,
+      "test_time": "",
+      "avg_time_ms": 235349.5637,
+      "stddev_time_ms": 0,
+      "prompt_tps": 66.543118,
+      "prompt_tps_watt": 0.0,
+      "prompt_tps_stddev": 0.0,
+      "gen_tps": 6.533137,
+      "gen_tps_watt": 0.0,
+      "gen_tps_stddev": 0.0,
+      "name": "pp16+tg1536",
+      "power_watts": 0.0,
+      "ttft_ms": 393.51143209635416,
+      "main_gpu": 0,
+      "samples_ns": [
+        240445600,
+        235109118100
+      ]
+    }
+  ],
+  "results_summary": {
+    "avg_prompt_tps": 73.76761933333334,
+    "avg_gen_tps": 6.445792333333333,
+    "avg_ttft_ms": 9058.068436447482,
+    "performance_score": 37.442843839520734
+  }
+}

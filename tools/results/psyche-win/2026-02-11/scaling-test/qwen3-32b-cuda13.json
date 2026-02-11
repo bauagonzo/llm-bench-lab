@@ -1,0 +1,89 @@
+{
+  "runtime_info": {
+    "name": "llamafile",
+    "version": "1.0.0-llama-bench",
+    "commit": "8872ad212"
+  },
+  "system_info": {
+    "cpu_name": "AMD Ryzen 7 9800X3D 8-Core Processor           ",
+    "cpu_arch": "AMD64",
+    "ram_gb": 61.61,
+    "kernel_type": "Windows",
+    "kernel_release": "11",
+    "version": "10.0.26200"
+  },
+  "accelerator_info": {
+    "name": "NVIDIA RTX PRO 6000 Blackwell Server Edition",
+    "manufacturer": "NVIDIA",
+    "memory_gb": 0.0,
+    "type": "GPU"
+  },
+  "results": [
+    {
+      "build_commit": "8872ad212",
+      "build_number": 7966,
+      "model_name": "qwen3",
+      "model_quant_str": "Medium",
+      "model_params_str": "",
+      "model_filename": "D:\\models\\Qwen3-32B-Q4_K_M.gguf",
+      "model_type": "qwen3 32B Q4_K - Medium",
+      "model_size": 19756174336,
+      "model_n_params": 32762123264,
+      "n_prompt": 1024,
+      "n_gen": 16,
+      "test_time": "",
+      "avg_time_ms": 5173.6051,
+      "stddev_time_ms": 0,
+      "prompt_tps": 273.306652,
+      "prompt_tps_watt": 0.0,
+      "prompt_tps_stddev": 0.0,
+      "gen_tps": 11.213136,
+      "gen_tps_watt": 0.0,
+      "gen_tps_stddev": 0.0,
+      "name": "pp1024+tg16",
+      "power_watts": 0.0,
+      "ttft_ms": 3835.8883187499996,
+      "main_gpu": 0,
+      "samples_ns": [
+        3746707200,
+        1426897900
+      ]
+    },
+    {
+      "build_commit": "8872ad212",
+      "build_number": 7966,
+      "model_name": "qwen3",
+      "model_quant_str": "Medium",
+      "model_params_str": "",
+      "model_filename": "D:\\models\\Qwen3-32B-Q4_K_M.gguf",
+      "model_type": "qwen3 32B Q4_K - Medium",
+      "model_size": 19756174336,
+      "model_n_params": 32762123264,
+      "n_prompt": 16,
+      "n_gen": 1536,
+      "test_time": "",
+      "avg_time_ms": 582027.8341,
+      "stddev_time_ms": 0,
+      "prompt_tps": 23.973291,
+      "prompt_tps_watt": 0.0,
+      "prompt_tps_stddev": 0.0,
+      "gen_tps": 2.642079,
+      "gen_tps_watt": 0.0,
+      "gen_tps_stddev": 0.0,
+      "name": "pp16+tg1536",
+      "power_watts": 0.0,
+      "ttft_ms": 1045.899259830729,
+      "main_gpu": 0,
+      "samples_ns": [
+        667409400,
+        581360424700
+      ]
+    }
+  ],
+  "results_summary": {
+    "avg_prompt_tps": 148.6399715,
+    "avg_gen_tps": 6.927607500000001,
+    "avg_ttft_ms": 2440.893789290364,
+    "performance_score": 74.9992064512283
+  }
+}
