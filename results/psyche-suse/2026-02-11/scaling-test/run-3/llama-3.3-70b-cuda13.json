@@ -1,0 +1,40 @@
+[New LWP 10718]
+[New LWP 10717]
+[New LWP 10716]
+[New LWP 10714]
+[New LWP 10713]
+[New LWP 10712]
+[New LWP 10711]
+[New LWP 10710]
+[New LWP 10709]
+[New LWP 10705]
+[New LWP 10704]
+
+This GDB supports auto-downloading debuginfo from the following URLs:
+  <https://debuginfod.opensuse.org/>
+Enable debuginfod for this session? (y or [n]) [answered N; input not from terminal]
+Debuginfod has been disabled.
+To make this setting permanent, add 'set debuginfod enabled off' to .gdbinit.
+[Thread debugging using libthread_db enabled]
+Using host libthread_db library "/lib64/libthread_db.so.1".
+0x00007efc82ea4812 in __syscall_cancel_arch () from /lib64/libc.so.6
+#0  0x00007efc82ea4812 in __syscall_cancel_arch () from /lib64/libc.so.6
+#1  0x00007efc82e98008 in __internal_syscall_cancel () from /lib64/libc.so.6
+#2  0x00007efc82e98061 in __syscall_cancel () from /lib64/libc.so.6
+#3  0x00007efc82f090fb in wait4 () from /lib64/libc.so.6
+#4  0x00007efc83597a13 in ggml_print_backtrace () from /lib64/libggml-base.so.0
+#5  0x00007efc835a661b in ?? () from /lib64/libggml-base.so.0
+#6  0x00007efc832c53bc in ?? () from /lib64/libstdc++.so.6
+#7  0x00007efc832b287a in std::terminate() () from /lib64/libstdc++.so.6
+#8  0x00007efc832c5668 in __cxa_throw () from /lib64/libstdc++.so.6
+#9  0x00007efc37485a91 in ?? () from /usr/lib64/ggml/libggml-vulkan.so
+#10 0x00007efc374e043d in ?? () from /usr/lib64/ggml/libggml-vulkan.so
+#11 0x00007efc375add2d in ?? () from /usr/lib64/ggml/libggml-vulkan.so
+#12 0x00007efc836bc3a0 in llama_context::decode(llama_batch const&) () from /lib64/libllama.so.0
+#13 0x00007efc836bda7e in llama_decode () from /lib64/libllama.so.0
+#14 0x0000556b6a2e02aa in ?? ()
+#15 0x0000556b6a2da994 in ?? ()
+#16 0x00007efc82e2b2fb in __libc_start_call_main () from /lib64/libc.so.6
+#17 0x00007efc82e2b3cb in __libc_start_main_impl () from /lib64/libc.so.6
+#18 0x0000556b6a2df175 in ?? ()
+[Inferior 1 (process 10702) detached]
