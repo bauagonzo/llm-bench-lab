@@ -1,0 +1,119 @@
+{
+  "runtime_info": {
+    "name": "llamafile",
+    "version": "1.0.0-llama-bench",
+    "commit": "8872ad212"
+  },
+  "system_info": {
+    "cpu_name": "AMD Ryzen 7 9800X3D 8-Core Processor           ",
+    "cpu_arch": "AMD64",
+    "ram_gb": 61.61,
+    "kernel_type": "Windows",
+    "kernel_release": "11",
+    "version": "10.0.26200"
+  },
+  "accelerator_info": {
+    "name": "NVIDIA RTX PRO 6000 Blackwell Server Edition",
+    "manufacturer": "NVIDIA",
+    "memory_gb": 0.0,
+    "type": "GPU"
+  },
+  "results": [
+    {
+      "build_commit": "8872ad212",
+      "build_number": 7966,
+      "model_name": "phi3",
+      "model_quant_str": "Medium",
+      "model_params_str": "",
+      "model_filename": "D:\\models\\Phi-4-mini-instruct-Q4_K_M.gguf",
+      "model_type": "phi3 3B Q4_K - Medium",
+      "model_size": 2483623296,
+      "model_n_params": 3836021856,
+      "n_prompt": 1024,
+      "n_gen": 16,
+      "test_time": "",
+      "avg_time_ms": 97.1603,
+      "stddev_time_ms": 0,
+      "prompt_tps": 20409.993722,
+      "prompt_tps_watt": 0.0,
+      "prompt_tps_stddev": 0.0,
+      "gen_tps": 340.506674,
+      "gen_tps_watt": 0.0,
+      "gen_tps_stddev": 0.0,
+      "name": "pp1024+tg16",
+      "power_watts": 0.0,
+      "ttft_ms": 53.1083,
+      "main_gpu": 0,
+      "samples_ns": [
+        50171500,
+        46988800
+      ]
+    },
+    {
+      "build_commit": "8872ad212",
+      "build_number": 7966,
+      "model_name": "phi3",
+      "model_quant_str": "Medium",
+      "model_params_str": "",
+      "model_filename": "D:\\models\\Phi-4-mini-instruct-Q4_K_M.gguf",
+      "model_type": "phi3 3B Q4_K - Medium",
+      "model_size": 2483623296,
+      "model_n_params": 3836021856,
+      "n_prompt": 1024,
+      "n_gen": 1024,
+      "test_time": "",
+      "avg_time_ms": 3166.4059,
+      "stddev_time_ms": 0,
+      "prompt_tps": 20398.36574,
+      "prompt_tps_watt": 0.0,
+      "prompt_tps_stddev": 0.0,
+      "gen_tps": 328.604741,
+      "gen_tps_watt": 0.0,
+      "gen_tps_stddev": 0.0,
+      "name": "pp1024+tg1024",
+      "power_watts": 0.0,
+      "ttft_ms": 53.2432697265625,
+      "main_gpu": 0,
+      "samples_ns": [
+        50200100,
+        3116205800
+      ]
+    },
+    {
+      "build_commit": "8872ad212",
+      "build_number": 7966,
+      "model_name": "phi3",
+      "model_quant_str": "Medium",
+      "model_params_str": "",
+      "model_filename": "D:\\models\\Phi-4-mini-instruct-Q4_K_M.gguf",
+      "model_type": "phi3 3B Q4_K - Medium",
+      "model_size": 2483623296,
+      "model_n_params": 3836021856,
+      "n_prompt": 16,
+      "n_gen": 1536,
+      "test_time": "",
+      "avg_time_ms": 4711.5303,
+      "stddev_time_ms": 0,
+      "prompt_tps": 3073.258807,
+      "prompt_tps_watt": 0.0,
+      "prompt_tps_stddev": 0.0,
+      "gen_tps": 326.369363,
+      "gen_tps_watt": 0.0,
+      "gen_tps_stddev": 0.0,
+      "name": "pp16+tg1536",
+      "power_watts": 0.0,
+      "ttft_ms": 8.270213085937499,
+      "main_gpu": 0,
+      "samples_ns": [
+        5206200,
+        4706324100
+      ]
+    }
+  ],
+  "results_summary": {
+    "avg_prompt_tps": 14627.206089666666,
+    "avg_gen_tps": 331.826926,
+    "avg_ttft_ms": 38.2072609375,
+    "performance_score": 5027.001713638118
+  }
+}
