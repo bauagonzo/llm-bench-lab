@@ -169,6 +169,70 @@ The pattern is sharp. Models under 12B gained 7 to 9x. Models at 12B stayed flat
 
 ---
 
+## Finding 6: The Real Bottleneck Was Never the Backend
+
+Here is the twist that reframes everything above. Our crashes, thermal throttling, and performance cliffs share a common root cause. It is not Vulkan. It is not CUDA. It is cooling.
+
+### A Passive GPU in a Consumer Case
+
+The RTX PRO 6000 Blackwell Server Edition has no fans. Run `nvidia-smi` and Fan Speed reads N/A. This card draws up to 600W TDP (configurable from 300W to 600W). NVIDIA designed it for rack servers like the [Dell PowerEdge XE9680 and R760xa](https://www.dell.com/en-us/shop/dell-poweredge-servers/sf/poweredge), where engineered front-to-back airflow tunnels force high-pressure air through the heatsink fins. The [Central Computer overview](https://www.centralcomputer.com/blog/post/understanding-the-nvidia-rtx-6000-pro-blackwell-lineup-workstation-max-q-and-server-editions) and [VAST AI comparison](https://vast.ai/article/which-nvidia-rtx-6000-is-right-for-you) both stress this point: the Server Edition requires external chassis airflow. No exceptions.
+
+We put this card in an [Antec C5](https://www.antec.com/product/case/c5) mid-tower case. Seven Antec P12 120mm ARGB fans provide airflow: six reversed as intake (bottom and side panels) and one rear exhaust. The case uses a vertical bottom-to-top airflow scheme. Each P12 pushes roughly 50 to 60 CFM at 1.5 to 2.0 mm H2O static pressure. Total theoretical intake: about 330 CFM.
+
+That sounds like plenty. It is not.
+
+### Why 330 CFM Falls Short
+
+Three problems turn 330 CFM into a fraction of what the GPU needs.
+
+**Direction.** The P12 fans push air vertically and from the side. The GPU heatsink fins run front to back. Air flows around the card, not through it. Without baffles or ducting, the path of least resistance bypasses the heatsink entirely.
+
+**Static pressure.** Dense passive heatsink fins need 5 to 10+ mm H2O of static pressure to force air through them. The P12 fans deliver 1.5 to 2.0 mm H2O. Consumer case fans simply cannot push through server-grade fin density.
+
+**No ducting.** Nothing seals the airflow path. Hot air recirculates. Cold air takes shortcuts. The GPU sits in a pocket of turbulence, not a cooling tunnel.
+
+Realistic estimate: only 30 to 40% of total chassis airflow actually passes through the GPU heatsink. That puts effective GPU airflow at roughly 100 to 130 CFM.
+
+### The Math Says We Are at the Edge
+
+A standard electronic cooling formula gives the required airflow through a heat source:
+
+> **CFM = (Watts x 3.16) / Delta T (degrees C)**
+
+For our 600W card:
+
+| Allowed Air Temp Rise | Required CFM Through Card |
+|-----------------------|---------------------------|
+| 10 degrees C | ~190 CFM |
+| 15 degrees C | ~125 CFM |
+
+Our estimated 100 to 130 CFM sits right at the boundary for a 15 degree C rise. Any sustained load that pushes power above 400W will exceed what our airflow can dissipate. The GPU temperature climbs until thermal protection kicks in.
+
+### Community Results Confirm the Problem
+
+Other builders on [r/LocalLLM](https://www.reddit.com/r/LocalLLM/comments/1mmqghu/rtx_pro_6000_se_is_crushing_it/) tested the same card in non-server enclosures. Their results match our analysis:
+
+| Fan Setup | CFM (Directed) | Idle Temp | Load Temp | Verdict |
+|-----------|----------------|-----------|-----------|---------|
+| Thermalright TY-143 (single) | ~130 | 50 C | 85 C | Marginal, throttles under sustained load |
+| Wathai 120x38mm server fan + custom duct | ~220 | 33 C | 61-62 C | Stable, no throttling |
+
+The difference is not raw CFM. It is directed, high-pressure airflow through the heatsink with proper ducting. The Wathai setup uses a server-grade fan (high static pressure) mounted in a custom shroud that forces every cubic foot of air through the card.
+
+### Reframing Our Results
+
+Go back through Findings 1 through 5 with this lens. The pattern clicks into place.
+
+CUDA's thermal throttling on Qwen3 32B (Finding 4) happened because CUDA bursts to 500W. At that power level, our airflow cannot keep up. Temperature hits 95 C. The GPU downclocks to survive.
+
+Vulkan ran the same model at a steadier 324W average. Lower power means lower heat means sustainable performance. Vulkan did not "handle thermals better." It simply drew less power, staying within our cooling budget.
+
+The 70B crashes (Finding 3) hit both backends at peak power draw. Vulkan's sustained compute patterns push the thermal envelope longer, which explains its higher crash count. But CUDA crashed too when it drew enough power for long enough.
+
+**The real story:** a 600W passive GPU in a consumer mid-tower without directed airflow will hit thermal limits regardless of backend. Vulkan's higher sustained power draw just gets there faster. Our benchmark is testing cooling as much as it is testing backends.
+
+---
+
 ## Cross-OS Comparison: Linux vs Windows CUDA
 
 We ran the full suite on Windows (same hardware, driver 582.32) on February 11. After fixing initial GPU access issues (runs 1 through 3 fell back to CPU), runs 4 through 7 produced valid results.
