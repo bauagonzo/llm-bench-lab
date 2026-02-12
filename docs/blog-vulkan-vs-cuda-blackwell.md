@@ -27,9 +27,29 @@ We benchmarked 8 LLM models (1B to 70B parameters) across two backends, two oper
 | RAM | 60 GB DDR5 |
 | OS | openSUSE Linux 6.18 + Windows (same hardware) |
 | Engine | llama.cpp b7966 (Vulkan with NV_coopmat2, CUDA 13.1) |
-| Benchmark | localscore-bench: 3 configs per model (pp1024+tg16, pp1024+tg1024, pp16+tg1536) |
+| Benchmark | localscore-bench: 3 configs per model (see below) |
+
+Each model runs three test configurations that simulate real-world usage patterns:
+
+- **pp1024+tg16:** Process a long prompt (1024 tokens), generate a short answer (16 tokens). Measures prompt processing speed. Think summarization, RAG retrieval, or classification tasks.
+- **pp1024+tg1024:** Process a long prompt, generate a long response. Balanced workload. Think chatbot conversations or document Q&A.
+- **pp16+tg1536:** Process a short prompt (16 tokens), generate a very long response. Stresses sustained token generation. Think creative writing, code generation, or long-form content.
 
 All models use Q4_K_M quantization (4-bit). We use `llama-bench` builds from llama.cpp for both backends. The [localscore-bench :material-github:](https://github.com/bauagonzo/localscore-bench.git) repository contains the setup scripts for building and configuring each backend (CUDA vs Vulkan). Our test methodology draws inspiration from [localscore :material-open-in-new:](https://www.localscore.ai/blog#:~:text=The%20Tests), which defines a practical approach to measuring local LLM inference speed.
+
+---
+
+## The Methodology
+
+- **Engine:** llama.cpp b7966 (same commit for both backends)
+- **Vulkan backend:** [ggml-org/llama.cpp :material-github:](https://github.com/ggml-org/llama.cpp) releases, with NV_coopmat2 cooperative matrix support
+- **CUDA backend:** [ai-dock/llama.cpp-cuda :material-github:](https://github.com/ai-dock/llama.cpp-cuda) releases, CUDA 13.1
+- **Test suite:** Quick mode with 3 configurations covering short burst (pp1024+tg16), balanced (pp1024+tg1024), and sustained generation (pp16+tg1536)
+- **Inspiration:** Test methodology adapted from [localscore :material-open-in-new:](https://www.localscore.ai/blog#:~:text=The%20Tests), a practical benchmark for local LLM inference
+- **GPU monitoring:** nvidia-smi at 200ms intervals, capturing utilization, power, temperature, and VRAM
+- **Quantization:** Q4_K_M for all models (4-bit, medium quality)
+- **Runs:** 4 complete runs on Linux (plus 1 aborted), 7 runs on Windows (4 with valid GPU access)
+- **All results and raw data:** [github.com/bauagonzo/llm-bench-lab :material-github:](https://github.com/bauagonzo/llm-bench-lab)
 
 ---
 
@@ -39,14 +59,14 @@ All models use Q4_K_M quantization (4-bit). We use `llama-bench` builds from lla
 
 | Model | Params | Vulkan PP | Vulkan TG | CUDA PP | CUDA TG | Winner |
 |-------|--------|-----------|-----------|---------|---------|--------|
-| Gemma 3 1B | 1.0B | 3,390 | 61 | **28,712** | **539** | CUDA |
-| Llama 3.2 1B | 1.2B | 3,526 | 117 | **31,091** | **785** | CUDA |
-| Phi-4 Mini | 3.8B | 1,315 | 45 | **14,681** | **334** | CUDA |
-| Ministral 8B | 8.0B | 652 | 29 | **8,458** | **208** | CUDA |
-| Gemma 3 12B | 11.8B | 5,341 | 117 | **5,708** | **123** | CUDA |
-| Mistral Nemo 12B | 12.2B | **4,776** | **51** | 577 | 25 | **Vulkan 8.3x** :material-fire: |
-| Qwen3 32B | 32.8B | 1,956 | **58** | **2,221** | 41 | Split |
-| Llama 3.3 70B | 70.6B | 1,394 | **30** | **1,613** | 25 | Split |
+| [Gemma 3 1B :material-open-in-new:](https://huggingface.co/bartowski/google_gemma-3-1b-it-GGUF) | 1.0B | 3,390 | 61 | **28,712** | **539** | CUDA |
+| [Llama 3.2 1B :material-open-in-new:](https://huggingface.co/bartowski/Llama-3.2-1B-Instruct-GGUF) | 1.2B | 3,526 | 117 | **31,091** | **785** | CUDA |
+| [Phi-4 Mini :material-open-in-new:](https://huggingface.co/bartowski/microsoft_Phi-4-mini-instruct-GGUF) | 3.8B | 1,315 | 45 | **14,681** | **334** | CUDA |
+| [Ministral 8B :material-open-in-new:](https://huggingface.co/bartowski/Ministral-8B-Instruct-2410-GGUF) | 8.0B | 652 | 29 | **8,458** | **208** | CUDA |
+| [Gemma 3 12B :material-open-in-new:](https://huggingface.co/bartowski/google_gemma-3-12b-it-GGUF) | 11.8B | 5,341 | 117 | **5,708** | **123** | CUDA |
+| [Mistral Nemo 12B :material-open-in-new:](https://mistral.ai/fr/news/mistral-nemo) | 12.2B | **4,776** | **51** | 577 | 25 | **Vulkan 8.3x** :material-fire: |
+| [Qwen3 32B :material-open-in-new:](https://huggingface.co/bartowski/Qwen_Qwen3-32B-GGUF) | 32.8B | 1,956 | **58** | **2,221** | 41 | Split |
+| [Llama 3.3 70B :material-open-in-new:](https://huggingface.co/bartowski/Llama-3.3-70B-Instruct-GGUF) | 70.6B | 1,394 | **30** | **1,613** | 25 | Split |
 
 > PP = Prompt Processing (tokens/sec). TG = Token Generation (tokens/sec). Vulkan values from Feb 9. CUDA values from Feb 12 run 4 (best validated run). Values are averages across three test configurations.
 
@@ -60,8 +80,8 @@ Care about interactive speed? Vulkan delivers faster token generation for models
 
 This finding made us recheck our methodology three times.
 
-**Mistral Nemo 12B on CUDA:** 577 t/s prompt processing, 25 t/s generation.
-**Mistral Nemo 12B on Vulkan:** 4,776 t/s prompt processing, 51 t/s generation.
+**[Mistral Nemo 12B :material-open-in-new:](https://mistral.ai/fr/news/mistral-nemo) on CUDA:** 577 t/s prompt processing, 25 t/s generation.
+**[Mistral Nemo 12B :material-open-in-new:](https://mistral.ai/fr/news/mistral-nemo) on Vulkan:** 4,776 t/s prompt processing, 51 t/s generation.
 
 That is an 8.3x gap in prompt processing. Same GPU. Same model. Same llama.cpp build.
 
@@ -95,7 +115,7 @@ For **prompt processing**, CUDA's advantage grows with model size. No surprises 
 <!-- CHART: qwen3-32b-vulkan.png -->
 *Fig 3: Qwen3 32B on Vulkan. Steady 400W power draw, temperature climbing from 37C to 80C. Token generation holds at ~58 t/s throughout.*
 
-<!-- CHART: qwen3-32b-cuda13.png -->
+<!-- CHART: qwen3-32b-cuda13-throttle.png -->
 *Fig 4: Qwen3 32B on CUDA 13.1. Notice test 3 (pp16+tg1536). Power drops from ~500W to ~150W as temperature hits 95C. Token generation collapses from 52 t/s to 11.6 t/s.*
 
 **The takeaway:** For 32B+ models in interactive use (chatbots, coding assistants), Vulkan delivers faster responses. The 41% advantage on Qwen3 32B translates to noticeably snappier inference.
@@ -154,7 +174,7 @@ Here is the twist that reframes everything above. Our crashes, thermal throttlin
 
 ### A Passive GPU in a Consumer Case
 
-The RTX PRO 6000 Blackwell Server Edition has no fans. Run `nvidia-smi` and Fan Speed reads N/A. This card draws up to 600W TDP (configurable from 300W to 600W). NVIDIA designed it for rack servers like the [Dell PowerEdge XE9680 and R760xa :material-open-in-new:](https://www.dell.com/en-us/shop/dell-poweredge-servers/sf/poweredge), where engineered front-to-back airflow tunnels force high-pressure air through the heatsink fins. The [Central Computer overview :material-open-in-new:](https://www.centralcomputer.com/blog/post/understanding-the-nvidia-rtx-6000-pro-blackwell-lineup-workstation-max-q-and-server-editions) and [VAST AI comparison :material-open-in-new:](https://vast.ai/article/which-nvidia-rtx-6000-is-right-for-you) both stress this point: the Server Edition requires external chassis airflow. No exceptions.
+The RTX PRO 6000 Blackwell Server Edition has no fans. Run `nvidia-smi` and Fan Speed reads N/A. This card draws up to 600W TDP (configurable from 300W to 600W). NVIDIA designed it for rack servers like the [Dell PowerEdge XE9680 and R760xa :simple-dell: :material-open-in-new:](https://www.dell.com/en-us/shop/dell-poweredge-servers/sf/poweredge), where engineered front-to-back airflow tunnels force high-pressure air through the heatsink fins. The [Central Computer overview :material-open-in-new:](https://www.centralcomputer.com/blog/post/understanding-the-nvidia-rtx-6000-pro-blackwell-lineup-workstation-max-q-and-server-editions) and [VAST AI comparison :material-open-in-new:](https://vast.ai/article/which-nvidia-rtx-6000-is-right-for-you) both stress this point: the Server Edition requires external chassis airflow. No exceptions.
 
 We put this card in an [Antec C5 :material-open-in-new:](https://www.antec.com/product/case/c5) mid-tower case. Seven Antec P12 120mm ARGB fans provide airflow: six reversed as intake (bottom and side panels) and one rear exhaust. The case uses a vertical bottom-to-top airflow scheme. Each P12 pushes roughly 50 to 60 CFM at 1.5 to 2.0 mm H2O static pressure. Total theoretical intake: about 330 CFM.
 
@@ -241,31 +261,17 @@ This is good news. Pick the OS you prefer. Performance follows the hardware, not
 
 ## What This Means for You
 
-### Models 8B and smaller :material-check:
+### Models 8B and smaller: stick with CUDA :material-check:
 Use CUDA. It is faster and more stable. Vulkan remains consistent but CUDA leads by a wide margin on small models.
 
-### Models at 32B for interactive use :material-creation:
+### Models at 32B for interactive use: try Vulkan :material-creation:
 Try Vulkan. The token generation advantage is real (+18 to 41%). Vulkan also runs at lower sustained power, reducing thermal throttling risk. Expect occasional GPU crashes on long sessions.
 
-### Mistral Nemo 12B specifically :material-fire:
+### Mistral Nemo 12B specifically: use Vulkan, no question :material-fire:
 Use Vulkan. No question. An 8.3x speedup is not something you leave on the table. This is almost certainly a CUDA bug that will get fixed, but until then, Vulkan wins by a landslide.
 
-### Production reliability :material-alert:
+### Production reliability: plan for crashes :material-alert:
 Neither backend is crash-free at 70B on this hardware. CUDA offers better stability overall (2 failures vs 4 for Vulkan). For mission-critical workloads, add crash recovery to your pipeline regardless of backend choice.
-
----
-
-## Methodology
-
-- **Engine:** llama.cpp b7966 (same commit for both backends)
-- **Vulkan backend:** [ggml-org/llama.cpp :material-github:](https://github.com/ggml-org/llama.cpp) releases, with NV_coopmat2 cooperative matrix support
-- **CUDA backend:** [ai-dock/llama.cpp-cuda :material-github:](https://github.com/ai-dock/llama.cpp-cuda) releases, CUDA 13.1
-- **Test suite:** Quick mode with 3 configurations covering short burst (pp1024+tg16), balanced (pp1024+tg1024), and sustained generation (pp16+tg1536)
-- **Inspiration:** Test methodology adapted from [localscore :material-open-in-new:](https://www.localscore.ai/blog#:~:text=The%20Tests), a practical benchmark for local LLM inference
-- **GPU monitoring:** nvidia-smi at 200ms intervals, capturing utilization, power, temperature, and VRAM
-- **Quantization:** Q4_K_M for all models (4-bit, medium quality)
-- **Runs:** 4 complete runs on Linux (plus 1 aborted), 7 runs on Windows (4 with valid GPU access)
-- **All results and raw data:** [github.com/bauagonzo/llm-bench-lab :material-github:](https://github.com/bauagonzo/llm-bench-lab)
 
 ---
 
