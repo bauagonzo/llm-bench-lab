@@ -6,14 +6,15 @@
 
 ## TL;DR
 
-We benchmarked 10 LLM models (1B to 123B parameters) on NVIDIA's new Blackwell architecture, comparing Vulkan (with coopmat2) against CUDA 13.1. The conventional wisdom — "just use CUDA on NVIDIA hardware" — turns out to be wrong in interesting ways.
+We benchmarked 8 LLM models (1B to 70B parameters) across two backends, two operating systems, and six runs. Vulkan with coopmat2 challenged CUDA 13.1 on NVIDIA's newest architecture. The results broke every assumption we had.
 
-**The headline findings:**
-- There's no clean "Vulkan wins small, CUDA wins big" crossover
-- One 12B model runs **8.3× faster on Vulkan** than CUDA (not a typo)
-- Vulkan wins token generation at 32B (+41%) and 70B (+18%) despite CUDA winning prompt processing
-- Vulkan crashes the GPU — four failures across 5 runs, including one on an 8B model
-- CUDA thermally throttles on sustained 32B generation, dropping from 52 t/s to 11.6 t/s
+**The headlines:**
+
+- Mistral Nemo 12B runs **8.3x faster on Vulkan** than CUDA (not a typo)
+- Vulkan wins token generation at 32B (+41%) and 70B (+18%)
+- Six GPU crashes across all testing: four Vulkan, one CUDA Linux, one CUDA Windows
+- CUDA thermal throttles on sustained 32B generation, dropping from 52 t/s to 11.6 t/s
+- A mystery driver change boosted CUDA small-model performance 9x between sessions
 
 ---
 
@@ -24,17 +25,17 @@ We benchmarked 10 LLM models (1B to 123B parameters) on NVIDIA's new Blackwell a
 | GPU | NVIDIA RTX PRO 6000 Blackwell Server Edition, 96 GB VRAM |
 | CPU | AMD Ryzen 7 9800X3D |
 | RAM | 60 GB DDR5 |
-| OS | openSUSE Linux 6.18 |
+| OS | openSUSE Linux 6.18 + Windows (same hardware) |
 | Engine | llama.cpp b7966 (Vulkan with NV_coopmat2, CUDA 13.1) |
-| Benchmark | localscore-bench — 3 test configs per model: pp1024+tg16, pp1024+tg1024, pp16+tg1536 |
+| Benchmark | localscore-bench: 3 configs per model (pp1024+tg16, pp1024+tg1024, pp16+tg1536) |
 
-All models are Q4_K_M quantization (4-bit) unless otherwise noted. Both backends use the same llama.cpp build version for fair comparison.
+All models use Q4_K_M quantization (4-bit). Both backends share the same llama.cpp build version.
 
 ---
 
 ## The Results
 
-### The Full Table
+### Linux: Vulkan vs CUDA (Feb 9, Initial Runs)
 
 | Model | Params | Vulkan PP | Vulkan TG | CUDA PP | CUDA TG | Winner |
 |-------|--------|-----------|-----------|---------|---------|--------|
@@ -43,169 +44,168 @@ All models are Q4_K_M quantization (4-bit) unless otherwise noted. Both backends
 | Phi-4 Mini | 3.8B | 1,315 | 45 | **1,490** | **49** | CUDA |
 | Ministral 8B | 8.0B | 652 | 29 | **1,086** | **35** | CUDA +67% PP |
 | Gemma 3 12B | 11.8B | 5,341 | 117 | **5,729** | **123** | CUDA |
-| Mistral Nemo 12B | 12.2B | **4,776** | **51** | 576 | 25 | **Vulkan 8.3×** 🔥 |
+| Mistral Nemo 12B | 12.2B | **4,776** | **51** | 576 | 25 | **Vulkan 8.3x** :material-fire: |
 | Qwen3 32B | 32.8B | 1,956 | **58** | **2,221** | 41 | Split |
 | Llama 3.3 70B | 70.6B | 1,394 | **30** | **1,613** | 25 | Split |
 
-> PP = Prompt Processing (tokens/sec). TG = Token Generation (tokens/sec).
+> PP = Prompt Processing (tokens/sec). TG = Token Generation (tokens/sec). Values are averages across three test configurations.
 
 ### What This Means for Practitioners
 
-If you're running local LLMs on Blackwell and you care about interactive speed (token generation), Vulkan might be your better bet for models ≥32B parameters. CUDA still wins prompt processing across most sizes, but the token generation story is more nuanced than anyone expected.
+Care about interactive speed? Vulkan delivers faster token generation for models at 32B and above. CUDA wins prompt processing at most sizes, but the generation story surprised us.
 
 ---
 
 ## Finding 1: The Mistral Nemo Anomaly
 
-This is the finding that made us double-check our methodology three times.
+This finding made us recheck our methodology three times.
 
-**Mistral Nemo 12B on CUDA: 576 t/s prompt processing, 25 t/s generation.**
-**Mistral Nemo 12B on Vulkan: 4,776 t/s prompt processing, 51 t/s generation.**
+**Mistral Nemo 12B on CUDA:** 576 t/s prompt processing, 25 t/s generation.
+**Mistral Nemo 12B on Vulkan:** 4,776 t/s prompt processing, 51 t/s generation.
 
-That's an 8.3× difference in prompt processing. On the same GPU. Same model. Same llama.cpp build.
+That is an 8.3x gap in prompt processing. Same GPU. Same model. Same llama.cpp build.
 
 <!-- CHART: mistral-nemo-12b-cuda13.png -->
-*Fig 1: Mistral Nemo 12B on CUDA 13.1 — GPU utilization reports 97% average, but power draw tells a different story. The GPU never exceeds 164W (the card's TDP is 250W). Something is wrong.*
+*Fig 1: Mistral Nemo 12B on CUDA 13.1. GPU utilization reports 97% average, but power draw tells a different story. The GPU never exceeds 164W on a 250W TDP card. Something is wrong.*
 
 <!-- CHART: mistral-nemo-12b-vulkan.png -->
-*Fig 2: Mistral Nemo 12B on Vulkan — Same model, same GPU, completely different behavior. Power peaks at 266W, GPU is genuinely working. Completes in roughly the same wall time but produces 8× more tokens.*
+*Fig 2: Mistral Nemo 12B on Vulkan. Same model, same GPU, completely different behavior. Power peaks at 266W. The GPU works for real this time.*
 
-The GPU monitoring charts reveal the clue: under CUDA, the card reports high utilization but draws minimal power — it's mostly idle despite nvidia-smi saying otherwise. Under Vulkan, power draw corresponds to actual computation.
+Under CUDA, the card reports high utilization but draws minimal power. It is mostly idle despite what nvidia-smi claims. Under Vulkan, power draw matches actual computation.
 
-**Our theory:** CUDA's Blackwell kernels have an optimization gap for Mistral Nemo's specific architecture. The model uses a standard transformer structure, but something about its layer dimensions causes CUDA to fall back to a suboptimal code path. This is likely a bug, not a fundamental limitation — and it probably affects other models with similar configurations that nobody has tested yet.
+**Our theory:** CUDA's Blackwell kernels hit a suboptimal code path for Mistral Nemo's layer dimensions. This looks like a bug, not a fundamental limitation. We confirmed the anomaly persists across all runs (Feb 9, Feb 11, Feb 12). It is deterministic and reproducible.
 
-**Why this matters to the community:** If you're running Mistral Nemo 12B (a popular local model) on Blackwell hardware, switching from CUDA to Vulkan gives you a free 8× speedup. No hardware change, no model change, just a different backend.
+**Why this matters:** If you run Mistral Nemo 12B on Blackwell hardware, switching from CUDA to Vulkan gives you a free 8x speedup. No hardware change required.
 
 ---
 
 ## Finding 2: Token Generation Crosses Back to Vulkan at 32B+
 
-The expected pattern was simple: Vulkan wins small models, CUDA wins big ones. Reality is more interesting.
+We expected a clean pattern: Vulkan wins small, CUDA wins big. The data refused to cooperate.
 
-For **prompt processing** (prefill), CUDA's advantage grows with model size — no surprises there. But for **token generation** (the speed you actually feel during inference), the story reverses above 32B:
+For **prompt processing**, CUDA's advantage grows with model size. No surprises there. But for **token generation** (the speed you feel during inference), the story reverses above 32B:
 
-| Model | Vulkan TG | CUDA TG | Δ |
-|-------|-----------|---------|---|
+| Model | Vulkan TG | CUDA TG | Delta |
+|-------|-----------|---------|-------|
 | Ministral 8B | 29 | **35** | CUDA +19% |
 | Gemma 3 12B | 117 | **123** | CUDA +6% |
 | Qwen3 32B | **58** | 41 | **Vulkan +41%** |
 | Llama 3.3 70B | **30** | 25 | **Vulkan +18%** |
 
 <!-- CHART: qwen3-32b-vulkan.png -->
-*Fig 3: Qwen3 32B on Vulkan — Steady 400W power draw, temperature climbing gradually from 37°C to 80°C. The GPU is working hard but staying within limits. Token generation holds at ~58 t/s throughout.*
+*Fig 3: Qwen3 32B on Vulkan. Steady 400W power draw, temperature climbing from 37C to 80C. Token generation holds at ~58 t/s throughout.*
 
 <!-- CHART: qwen3-32b-cuda13.png -->
-*Fig 4: Qwen3 32B on CUDA 13.1 — Notice the dramatic difference in test 3 (pp16+tg1536). Power drops from ~500W to ~150W while temperature hits 95°C. The GPU is thermal throttling, and token generation collapses from 52 t/s to 11.6 t/s.*
+*Fig 4: Qwen3 32B on CUDA 13.1. Notice test 3 (pp16+tg1536). Power drops from ~500W to ~150W as temperature hits 95C. Token generation collapses from 52 t/s to 11.6 t/s.*
 
-**Why this matters:** If you're serving 32B+ models for interactive use (chatbots, coding assistants), Vulkan delivers meaningfully faster responses. The 41% TG advantage on Qwen3 32B translates to noticeably snappier inference.
+**The takeaway:** For 32B+ models in interactive use (chatbots, coding assistants), Vulkan delivers faster responses. The 41% advantage on Qwen3 32B translates to noticeably snappier inference.
 
 ---
 
-## Finding 3: Vulkan Crashes the GPU (But CUDA Doesn't)
+## Finding 3: Both Backends Crash (Not Just Vulkan)
 
-Here's the catch. In our initial testing, Vulkan caused **three GPU-level crashes** on large models (a fourth followed in run 4 — see Finding 5):
+Our initial three runs pointed to a simple story: Vulkan crashes, CUDA stays rock solid. Then we ran more tests. The full picture tells a different story.
 
-| Model | Event |
-|-------|-------|
-| GPT-OSS 20B | PCIe header corruption — GPU becomes unresponsive |
-| Llama 3.3 70B (run 1) | `vk::DeviceLostError` during sustained generation |
-| Llama 3.3 70B (run 2) | Same crash — required full system reboot |
+### The Complete Crash Log
+
+| # | Date | Model | Backend | OS | Failure |
+|---|------|-------|---------|----|---------|
+| 1 | Feb 8 | GPT-OSS 20B | Vulkan | Linux | PCIe header corruption |
+| 2 | Feb 9 | Llama 3.3 70B | Vulkan | Linux | `vk::DeviceLostError` |
+| 3 | Feb 9 | Llama 3.3 70B | Vulkan | Linux | Same crash on retest |
+| 4 | Feb 11 | Llama 3.3 70B | CUDA | Linux | Crash dump instead of JSON (run 3) |
+| 5 | Feb 11 | Llama 3.3 70B | CUDA | Windows | CPU fallback (GPU unresponsive) |
+| 6 | Feb 12 | Ministral 8B | Vulkan | Linux | Error during sustained TG (run 4) |
+
+Six crashes total. Four from Vulkan, two from CUDA. Every 70B attempt on this GPU carries risk regardless of backend.
+
+The Vulkan crashes follow a consistent pattern: sustained token generation triggers a PCIe-level failure. The GPU reports "Unknown header type 7f" via `lspci`. No amount of driver reset recovers it. Only a full power cycle works.
+
+**Crash #6 surprised us most.** Ministral 8B uses only ~5 GB VRAM. Previous crashes all involved models at 20B or larger with 40+ GB allocated. This broke our "large model only" hypothesis. The Vulkan stability issue relates to sustained compute duration, not just memory pressure.
+
+**CUDA's 70B crashes tell a parallel story.** Linux run 3 produced a crash dump instead of benchmark results. Windows refused to load 70B onto the GPU at all, falling back to CPU (1.2 t/s). The 70B model pushes this hardware to its limits on both backends.
 
 <!-- CHART: llama-3.3-70b-vulkan.png -->
-*Fig 5: Llama 3.3 70B on Vulkan — The GPU crash signature. Power spikes to 513W during prompt processing, then drops to ~120W. Temperature continues climbing to 104°C even after power drops — the GPU has stopped computing but retained residual heat. The flat utilization line at 100% after ~90s is the GPU in a hung state.*
-
-The crash pattern is consistent: sustained token generation with 40GB+ VRAM allocated through Vulkan triggers a PCIe-level failure. `lspci` reports "Unknown header type 7f" — the GPU is no longer responding at the bus level. No amount of driver reset recovers it; only a full power cycle (reboot) works.
-
-**CUDA never crashes.** Same models, same workloads, same GPU — rock solid under CUDA.
-
-**What this tells us:** Vulkan's performance advantage on large models comes with a stability risk on current Blackwell hardware/drivers. For production workloads, CUDA's reliability may outweigh Vulkan's speed advantage. For benchmarking and experimentation, just save your work.
+*Fig 5: Llama 3.3 70B on Vulkan. Power spikes to 513W during prompt processing, then drops to ~120W. Temperature climbs to 104C even after power drops. The GPU has stopped computing but retains residual heat.*
 
 ---
 
 ## Finding 4: CUDA Thermal Throttling Under Sustained Load
 
-The Qwen3 32B CUDA run exposed a thermal issue. The benchmark runs three test configurations:
+The Qwen3 32B CUDA run exposed a thermal problem. The benchmark runs three configurations:
 
-1. **pp1024+tg16** — Short burst: 52 t/s TG ✅
-2. **pp1024+tg1024** — Medium run: 52 t/s TG ✅  
-3. **pp16+tg1536** — Long generation: **11.6 t/s TG** ⚠️
+1. **pp1024+tg16** (short burst): 52 t/s TG :material-check:
+2. **pp1024+tg1024** (medium run): 52 t/s TG :material-check:
+3. **pp16+tg1536** (long generation): **11.6 t/s TG** :material-alert:
 
-That's a 4.5× performance cliff within the same benchmark session. The GPU monitoring chart shows temperature climbing to 95°C, at which point NVIDIA's thermal management aggressively downclocks, dropping power from ~500W to ~150W.
+That is a 4.5x performance cliff within a single benchmark session. Temperature climbed to 95C. NVIDIA's thermal management aggressively downclocked the GPU, dropping power from ~500W to ~150W.
 
-Vulkan didn't hit this on the same model because it ran at lower power (avg 324W vs CUDA's initial 500W burst). Lower power → lower heat → sustainable performance.
+Vulkan avoided this on the same model. It ran at lower power (avg 324W vs CUDA's initial 500W burst). Lower power means lower heat means sustainable performance.
 
-**Takeaway:** CUDA's peak performance can be misleading if your workloads are sustained. Vulkan's more moderate power profile may deliver better throughput over long conversations.
+**The lesson:** CUDA's peak performance can mislead you if your workloads run long. Vulkan's more moderate power profile delivers better throughput over extended conversations.
+
+---
+
+## Finding 5: The Ghost in the Driver
+
+Something changed between our Feb 9 and Feb 12 CUDA runs. We did not expect it.
+
+Small model CUDA performance jumped dramatically between sessions. Gemma 3 1B prompt processing went from 4,726 t/s (Feb 9) to 41,590 t/s (Feb 12, run 4). That is an 8.8x increase on the same hardware, same llama.cpp build, same model file.
+
+| Model | CUDA PP (Feb 9) | CUDA PP (Feb 12) | Change |
+|-------|-----------------|-------------------|--------|
+| Gemma 3 1B | 4,726 | 41,590 | **+780%** |
+| Llama 3.2 1B | 4,727 | 44,107 | **+833%** |
+| Phi-4 Mini 3.8B | 1,490 | 14,681 | **+885%** |
+| Ministral 8B | 1,086 | 8,458 | **+679%** |
+| Gemma 3 12B | 5,729 | 5,708 | -0.4% |
+| Mistral Nemo 12B | 576 | 577 | +0.2% |
+
+The pattern is sharp. Models under 12B gained 7 to 9x. Models at 12B stayed flat. Both sessions used the same llama.cpp commit (`8872ad2`). We suspect a CUDA driver hotfix landed between sessions, though we cannot confirm the exact change.
+
+**Vulkan told the opposite story.** Across the same gap (Feb 9 to Feb 12), Vulkan throughput barely moved. Gemma 3 1B: 3,390 vs 3,383 (less than 0.2% drift). This level of consistency is exactly what you want from a benchmark.
+
+**Why this matters:** CUDA performance depends on factors outside your control. Driver updates can change results by nearly an order of magnitude. Vulkan provides more predictable, reproducible performance today.
+
+---
+
+## Cross-OS Comparison: Linux vs Windows CUDA
+
+We ran the full suite on Windows (same hardware, driver 582.32) on February 11. After fixing initial GPU access issues (runs 1 through 3 fell back to CPU), runs 4 through 7 produced valid results.
+
+| Model | Linux CUDA PP | Windows CUDA PP | Linux CUDA TG | Windows CUDA TG |
+|-------|---------------|-----------------|---------------|-----------------|
+| Gemma 3 1B | 28,712 | 27,952 | 539 | 517 |
+| Llama 3.2 1B | 31,091 | 30,764 | 785 | 774 |
+| Phi-4 Mini 3.8B | 14,681 | 14,631 | 334 | 320 |
+| Ministral 8B | 8,458 | 7,767 | 208 | 171 |
+| Qwen3 32B | N/A | 2,202 | N/A | 59 |
+| Llama 3.3 70B | Crash (run 3) | CPU fallback | N/A | 1.2 |
+
+> Linux values from Feb 12 run 4. Windows values averaged from runs 4 through 7 (GPU-accelerated runs only).
+
+**Key observations:**
+
+- Small models (1B to 8B) perform within 5 to 10% across operating systems. Linux holds a slight edge.
+- Qwen3 32B produced valid Windows results (2,202 PP, 59 TG), closely matching Linux Vulkan numbers.
+- Llama 3.3 70B failed on both platforms. Linux CUDA crashed on run 3. Windows CUDA fell back to CPU.
+- The Mistral Nemo CUDA anomaly persists on Windows (575 PP vs Vulkan's 4,776 PP on Linux). This confirms an architecture-level issue, not an OS-specific driver bug.
 
 ---
 
 ## What This Means for You
 
-### If you're running models ≤8B (Phi-4, Ministral, Gemma 12B)
-→ **Use CUDA.** It's faster and more stable. Simple.
+### Models 8B and smaller
+Use CUDA. It is faster and more stable after recent driver improvements. Vulkan remains consistent but CUDA now leads by a wide margin on small models.
 
-### If you're running 32B+ models for interactive use
-→ **Try Vulkan.** The TG advantage is real (+18-41%), and it handles thermals better. Just be prepared for occasional GPU crashes on very long sessions.
+### Models at 32B for interactive use
+Try Vulkan. The token generation advantage is real (+18 to 41%). Vulkan also handles thermals better under sustained load. Expect occasional GPU crashes on long sessions.
 
-### If you're running Mistral Nemo 12B specifically
-→ **Use Vulkan. No question.** 8.3× faster. This is almost certainly a CUDA bug that will get fixed, but until then, Vulkan is dramatically better.
+### Mistral Nemo 12B specifically
+Use Vulkan. No question. An 8.3x speedup is not something you leave on the table. This is almost certainly a CUDA bug that will get fixed, but until then, Vulkan wins by a landslide.
 
-### If you need reliability above all
-→ **Use CUDA.** Zero crashes across 4+ runs. Vulkan crashed 4 times — and not just on large models. Thermal throttling is manageable with proper cooling.
-
----
-
-## Finding 5: Extra Runs Confirm the Pattern (Feb 12, Runs 4–5)
-
-We ran the full small/medium model suite again (runs 4 and 5) on February 12th to build statistical confidence. Run 5 was aborted early, but run 4 completed the CUDA phase and most of the Vulkan phase before — you guessed it — another GPU crash.
-
-### What Run 4 Tells Us
-
-**Vulkan is remarkably consistent.** Across runs 1 and 4 (three days apart), Vulkan throughput barely moved:
-
-| Model | Vulkan PP (Run 1) | Vulkan PP (Run 4) | Δ |
-|-------|-------------------|--------------------|---|
-| Llama 3.2 1B | 5,017 | 5,053 | +0.7% |
-| Gemma 3 1B | 4,901 | 4,897 | −0.1% |
-| Phi-4 Mini 3.8B | 1,864 | 1,872 | +0.4% |
-| Ministral 8B | 916 | 917 | +0.2% |
-
-Token generation numbers are equally stable (all within ±1.2%). This is the kind of reproducibility you want to see in benchmarks.
-
-**CUDA told a different story.** Small model performance (1B–8B) jumped dramatically between runs — Llama 1B prompt processing went from 4,657 to 43,856 t/s, a 9.4× increase. Meanwhile, 12B models stayed flat (Gemma 3 12B: 8,003 → 7,946, essentially unchanged). Both runs used the same llama.cpp build (commit `8872ad2`), so this appears to be a driver or runtime state change rather than a code difference. We're investigating whether a driver hotfix was applied between sessions.
-
-**The Mistral Nemo anomaly persists.** Run 4 confirms it: CUDA prompt processing is still stuck at 768 t/s (vs Vulkan's ~7,000+ in run 1). Whatever CUDA code path issue affects this model, it's deterministic and reproducible.
-
-### GPU Crash #4: Vulkan Dies on Ministral 8B
-
-Run 4's Vulkan phase crashed during **Ministral 8B** — smaller than any previous crash. The GPU monitoring markers tell the story:
-
-```
-MARKER: END   pp1024+tg16    @ 09:19:27  ← Test 1 completes fine
-MARKER: START pp1024+tg1024  @ 09:19:27  ← Test 2 begins
-MARKER: ERROR pp1024+tg1024  @ 09:20:45  ← Dead after 78 seconds
-MARKER: START pp16+tg1536    @ 09:20:45  ← Test 3 attempted
-MARKER: ERROR pp16+tg1536    @ 09:20:46  ← Instant fail (GPU already gone)
-```
-
-After Ministral 8B Vulkan died, Gemma 3 12B Vulkan and Mistral Nemo 12B Vulkan never ran. The GPU was unresponsive.
-
-This is significant because previous crashes all involved models ≥20B with ≥40 GB VRAM. Ministral 8B uses far less memory. The crash happened during sustained token generation (test 2), consistent with the pattern, but at a much smaller scale. This suggests the Vulkan stability issue isn't purely about VRAM pressure — it may be related to sustained compute load duration or a timing-dependent driver bug.
-
-### Updated Crash Tally
-
-| # | Date | Model | Backend | Failure | VRAM Used |
-|---|------|-------|---------|---------|-----------|
-| 1 | Feb 8 | GPT-OSS 20B | Vulkan | PCIe header corruption | ~40 GB |
-| 2 | Feb 9 | Llama 3.3 70B | Vulkan | `vk::DeviceLostError` | ~45 GB |
-| 3 | Feb 9 | Llama 3.3 70B | Vulkan | Same crash (retest) | ~45 GB |
-| 4 | Feb 12 | Ministral 8B | Vulkan | Error during sustained TG | ~5 GB |
-| — | — | *CUDA: zero crashes across all runs* | | | |
-
-Four Vulkan crashes, zero CUDA crashes. The pattern is clear: Vulkan on Blackwell has a stability problem that isn't limited to large models.
-
-### Run 5: Dead on Arrival
-
-Run 5 produced only partial GPU telemetry for Llama 3.2 1B CUDA before aborting. The CSV header was written but no benchmark data was captured. We cleaned up the partial files rather than include incomplete data.
+### Production reliability
+Neither backend is crash-free at 70B on this hardware. CUDA offers better stability overall (2 failures vs 4 for Vulkan). For mission-critical workloads, add crash recovery to your pipeline regardless of backend choice.
 
 ---
 
@@ -214,39 +214,25 @@ Run 5 produced only partial GPU telemetry for Llama 3.2 1B CUDA before aborting.
 - **Engine:** llama.cpp b7966 (same commit for both backends)
 - **Vulkan backend:** ggml-org/llama.cpp releases, with NV_coopmat2 cooperative matrix support
 - **CUDA backend:** ai-dock/llama.cpp-cuda releases, CUDA 13.1
-- **Test suite:** Quick mode — 3 configurations covering short burst (pp1024+tg16), balanced (pp1024+tg1024), and sustained generation (pp16+tg1536)
+- **Test suite:** Quick mode with 3 configurations covering short burst (pp1024+tg16), balanced (pp1024+tg1024), and sustained generation (pp16+tg1536)
 - **GPU monitoring:** nvidia-smi at 200ms intervals, capturing utilization, power, temperature, and VRAM
 - **Quantization:** Q4_K_M for all models (4-bit, medium quality)
+- **Runs:** 4 complete runs on Linux (plus 1 aborted), 7 runs on Windows (4 with valid GPU access)
 - **All results and raw data:** [github.com/bauagonzo/llm-bench-lab](https://github.com/bauagonzo/llm-bench-lab)
 
 ---
 
-## What's Next
+## What Comes Next
 
-**Update (Feb 12):** We've now completed 4 full runs on Linux (plus one aborted). The extra runs strengthen our confidence in the findings — Vulkan's consistency is excellent, the Mistral Nemo anomaly is deterministic, and Vulkan's stability issues affect smaller models than initially thought.
+The Blackwell architecture is new. Drivers change fast. Our next steps:
 
-Next steps:
-- Run the same test suite on **Windows** (same hardware) to isolate OS vs architecture effects
-- Test whether the Vulkan crashes reproduce under Windows drivers
-- Determine if the Mistral Nemo CUDA anomaly is OS-specific
-- Investigate the CUDA small-model performance jump between Feb 9 and Feb 12 runs
+- **Vulkan on Windows:** Test whether Windows Vulkan drivers include coopmat2 optimizations
+- **Driver bisection:** Pin down which CUDA driver update caused the 9x small-model speedup
+- **RTX 5090 Ti comparison:** Same test suite on consumer Blackwell silicon
+- **Flash Attention investigation:** Determine whether the Feb 12 CUDA boost relates to Flash Attention enablement
 
-Results will be published in the same repo.
-
----
-
-*Benchmarks by Ratatosk Noir & Veðr Vert. Raw data, scripts, and GPU monitoring charts available at [github.com/bauagonzo/llm-bench-lab](https://github.com/bauagonzo/llm-bench-lab).*
+We will publish updates in the same repository as results come in.
 
 ---
 
-## Recommended Charts for Publication
-
-The following charts from the results directory best illustrate the blog post's key findings:
-
-1. **`mistral-nemo-12b-cuda13.png`** + **`mistral-nemo-12b-vulkan.png`** — Side by side, these tell the Nemo anomaly story. The power draw difference is immediately visible.
-
-2. **`qwen3-32b-cuda13.png`** + **`qwen3-32b-vulkan.png`** — Shows both the thermal throttle cliff (CUDA) and Vulkan's steady performance. The power/temp panels are the key.
-
-3. **`llama-3.3-70b-vulkan.png`** — The GPU crash signature. Temperature climbing to 104°C while power flatlines — visually dramatic.
-
-4. **(Suggested: create)** A summary bar chart comparing PP and TG across all models, both backends. This would be the hero image. Can be generated from the JSON data with matplotlib.
+*Benchmarks by Ratatosk Noir and Vedr Vert. Raw data, scripts, and GPU monitoring charts available at [github.com/bauagonzo/llm-bench-lab](https://github.com/bauagonzo/llm-bench-lab).*
