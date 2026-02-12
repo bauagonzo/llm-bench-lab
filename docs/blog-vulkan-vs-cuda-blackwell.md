@@ -29,27 +29,7 @@ We benchmarked 8 LLM models (1B to 70B parameters) across two backends, two oper
 | Engine | llama.cpp b7966 (Vulkan with NV_coopmat2, CUDA 13.1) |
 | Benchmark | localscore-bench: 3 configs per model (pp1024+tg16, pp1024+tg1024, pp16+tg1536) |
 
-All models use Q4_K_M quantization (4-bit). Both backends share the same llama.cpp build version.
-
-Our test suite draws inspiration from [localscore :material-open-in-new:](https://www.localscore.ai/blog#:~:text=The%20Tests), which defines a practical methodology for measuring local LLM inference. We adapted their approach to compare Vulkan and CUDA backends on Blackwell hardware.
-
----
-
-!!! warning ":material-alert: Don't Do This at Home"
-
-    We ran a **600W passive server GPU** in a consumer mid-tower case. This is a terrible idea. The RTX PRO 6000 Server Edition has **zero fans**. NVIDIA designed it for rack servers with engineered front-to-back airflow tunnels.
-
-    **What went wrong:** thermal throttling, performance cliffs, and GPU crashes. Our seven case fans delivered roughly 330 CFM total, but only 100 to 130 CFM actually reached the heatsink. That is not enough for sustained 400W+ loads.
-
-    **If you insist on doing it anyway, you need:**
-
-    - :material-fan: **Server-grade fans** (e.g., Wathai 120x38mm) with 5 to 10+ mm H2O static pressure
-    - :material-air-filter: **Custom ducting or shroud** that forces air through the heatsink, not around it
-    - :material-thermometer-alert: **Temperature monitoring** with automatic shutdown at 95C
-    - :material-power-plug: **A PSU rated for 850W+** to handle peak GPU draw plus the rest of your system
-    - :material-cog: **Baffles or seals** to prevent hot air recirculation
-
-    The [r/LocalLLM community :material-open-in-new:](https://www.reddit.com/r/LocalLLM/comments/1mmqghu/rtx_pro_6000_se_is_crushing_it/) proved it works with the right setup: a server fan plus custom duct held load temps at 61C. Consumer case fans alone hit 85C and throttled.
+All models use Q4_K_M quantization (4-bit). We use `llama-bench` builds from llama.cpp for both backends. The [localscore-bench :material-github:](https://github.com/bauagonzo/localscore-bench.git) repository contains the setup scripts for building and configuring each backend (CUDA vs Vulkan). Our test methodology draws inspiration from [localscore :material-open-in-new:](https://www.localscore.ai/blog#:~:text=The%20Tests), which defines a practical approach to measuring local LLM inference speed.
 
 ---
 
@@ -218,7 +198,7 @@ The difference is not raw CFM. It is directed, high-pressure airflow through the
 
 ---
 
-## Cross-OS Comparison: Linux vs Windows CUDA :material-check:
+## Finding 6: Cross-OS Comparison Shows Minimal Difference :material-check:
 
 **The bottom line: OS choice barely matters.** We ran the full suite on Windows (same hardware, driver 582.32) on February 11. Small to medium models performed within 5 to 10% across operating systems. Linux holds a slight edge, but the difference is negligible for practical use.
 
@@ -234,6 +214,26 @@ The difference is not raw CFM. It is directed, high-pressure airflow through the
 > Linux values from Feb 12 run 4. Windows values averaged from runs 4 through 7 (GPU-accelerated runs only).
 
 This is good news. Pick the OS you prefer. Performance follows the hardware, not the operating system. Qwen3 32B produced valid Windows results (2,202 PP, 59 TG) that closely match Linux Vulkan numbers. Llama 3.3 70B failed on both platforms, confirming that the 70B stability issue is hardware-level, not OS-specific. The Mistral Nemo CUDA anomaly also persists on Windows (575 PP vs Vulkan's 4,776 PP), confirming an architecture-level issue.
+
+---
+
+---
+
+!!! warning ":material-alert: Don't Do This at Home"
+
+    We ran a **600W passive server GPU** in a consumer mid-tower case. This is a terrible idea. The RTX PRO 6000 Server Edition has **zero fans**. NVIDIA designed it for rack servers with engineered front-to-back airflow tunnels.
+
+    **What went wrong:** thermal throttling, performance cliffs, and GPU crashes. Our seven case fans delivered roughly 330 CFM total, but only 100 to 130 CFM actually reached the heatsink. That is not enough for sustained 400W+ loads.
+
+    **If you insist on doing it anyway, you need:**
+
+    - :material-fan: **Server-grade fans** (e.g., Wathai 120x38mm) with 5 to 10+ mm H2O static pressure
+    - :material-air-filter: **Custom ducting or shroud** that forces air through the heatsink, not around it
+    - :material-thermometer-alert: **Temperature monitoring** with automatic shutdown at 95C
+    - :material-power-plug: **A PSU rated for 850W+** to handle peak GPU draw plus the rest of your system
+    - :material-cog: **Baffles or seals** to prevent hot air recirculation
+
+    The [r/LocalLLM community :material-open-in-new:](https://www.reddit.com/r/LocalLLM/comments/1mmqghu/rtx_pro_6000_se_is_crushing_it/) proved it works with the right setup: a server fan plus custom duct held load temps at 61C. Consumer case fans alone hit 85C and throttled.
 
 ---
 
@@ -271,7 +271,6 @@ Neither backend is crash-free at 70B on this hardware. CUDA offers better stabil
 
 The Blackwell architecture is new. Drivers change fast. Our next steps:
 
-- :material-microsoft-windows: **Vulkan on Windows:** Test whether Windows Vulkan drivers include coopmat2 optimizations
 - :material-card-search: **Driver bisection:** Pin down which CUDA driver update caused the small-model speedup
 - :material-gpu: **RTX 5090 Ti comparison:** Same test suite on consumer Blackwell silicon
 - :material-lightning-bolt: **Flash Attention investigation:** Determine whether the Feb 12 CUDA boost relates to Flash Attention enablement
