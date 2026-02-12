@@ -1,0 +1,119 @@
+{
+  "runtime_info": {
+    "name": "llamafile",
+    "version": "1.0.0-llama-bench",
+    "commit": "unknown"
+  },
+  "system_info": {
+    "cpu_name": "AMD Ryzen 7 9800X3D 8-Core Processor",
+    "cpu_arch": "x86_64",
+    "ram_gb": 60.44,
+    "kernel_type": "Linux",
+    "kernel_release": "6.18.9-1-default",
+    "version": "#1 SMP PREEMPT_DYNAMIC Fri Feb  6 18:53:03 UTC 2026 (6d9f8a8)"
+  },
+  "accelerator_info": {
+    "name": "NVIDIA RTX PRO 6000 Blackwell Server Edition",
+    "manufacturer": "NVIDIA",
+    "memory_gb": 0.0,
+    "type": "GPU"
+  },
+  "results": [
+    {
+      "build_commit": "unknown",
+      "build_number": 7789,
+      "model_name": "llama",
+      "model_quant_str": "Medium",
+      "model_params_str": "",
+      "model_filename": "/home/coulof/models/Llama-3.2-1B-Instruct-Q4_K_M.gguf",
+      "model_type": "llama 1B Q4_K - Medium",
+      "model_size": 799862912,
+      "model_n_params": 1235814432,
+      "n_prompt": 1024,
+      "n_gen": 16,
+      "test_time": "",
+      "avg_time_ms": 331.457013,
+      "stddev_time_ms": 0,
+      "prompt_tps": 5052.505973,
+      "prompt_tps_watt": 0.0,
+      "prompt_tps_stddev": 0.0,
+      "gen_tps": 124.237774,
+      "gen_tps_watt": 0.0,
+      "gen_tps_stddev": 0.0,
+      "name": "pp1024+tg16",
+      "power_watts": 0.0,
+      "ttft_ms": 210.72078675,
+      "main_gpu": 0,
+      "samples_ns": [
+        202671705,
+        128785308
+      ]
+    },
+    {
+      "build_commit": "unknown",
+      "build_number": 7789,
+      "model_name": "llama",
+      "model_quant_str": "Medium",
+      "model_params_str": "",
+      "model_filename": "/home/coulof/models/Llama-3.2-1B-Instruct-Q4_K_M.gguf",
+      "model_type": "llama 1B Q4_K - Medium",
+      "model_size": 799862912,
+      "model_n_params": 1235814432,
+      "n_prompt": 1024,
+      "n_gen": 1024,
+      "test_time": "",
+      "avg_time_ms": 9324.158255,
+      "stddev_time_ms": 0,
+      "prompt_tps": 5039.263044,
+      "prompt_tps_watt": 0.0,
+      "prompt_tps_stddev": 0.0,
+      "gen_tps": 112.268959,
+      "gen_tps_watt": 0.0,
+      "gen_tps_stddev": 0.0,
+      "name": "pp1024+tg1024",
+      "power_watts": 0.0,
+      "ttft_ms": 212.1114975810547,
+      "main_gpu": 0,
+      "samples_ns": [
+        203204316,
+        9120953939
+      ]
+    },
+    {
+      "build_commit": "unknown",
+      "build_number": 7789,
+      "model_name": "llama",
+      "model_quant_str": "Medium",
+      "model_params_str": "",
+      "model_filename": "/home/coulof/models/Llama-3.2-1B-Instruct-Q4_K_M.gguf",
+      "model_type": "llama 1B Q4_K - Medium",
+      "model_size": 799862912,
+      "model_n_params": 1235814432,
+      "n_prompt": 16,
+      "n_gen": 1536,
+      "test_time": "",
+      "avg_time_ms": 13729.562161,
+      "stddev_time_ms": 0,
+      "prompt_tps": 537.175986,
+      "prompt_tps_watt": 0.0,
+      "prompt_tps_stddev": 0.0,
+      "gen_tps": 112.118615,
+      "gen_tps_watt": 0.0,
+      "gen_tps_stddev": 0.0,
+      "name": "pp16+tg1536",
+      "power_watts": 0.0,
+      "ttft_ms": 38.704522497395836,
+      "main_gpu": 0,
+      "samples_ns": [
+        29785397,
+        13699776764
+      ]
+    }
+  ],
+  "results_summary": {
+    "avg_prompt_tps": 3542.981667666667,
+    "avg_gen_tps": 116.20844933333335,
+    "avg_ttft_ms": 153.84560227615017,
+    "performance_score": 1388.3762470998022
+  }
+}

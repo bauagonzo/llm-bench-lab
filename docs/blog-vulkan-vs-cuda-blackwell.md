@@ -12,7 +12,7 @@ We benchmarked 10 LLM models (1B to 123B parameters) on NVIDIA's new Blackwell a
 - There's no clean "Vulkan wins small, CUDA wins big" crossover
 - One 12B model runs **8.3× faster on Vulkan** than CUDA (not a typo)
 - Vulkan wins token generation at 32B (+41%) and 70B (+18%) despite CUDA winning prompt processing
-- Vulkan crashes the GPU on large models — three PCIe-level failures requiring reboots
+- Vulkan crashes the GPU — four failures across 5 runs, including one on an 8B model
 - CUDA thermally throttles on sustained 32B generation, dropping from 52 t/s to 11.6 t/s
 
 ---
@@ -103,7 +103,7 @@ For **prompt processing** (prefill), CUDA's advantage grows with model size — 
 
 ## Finding 3: Vulkan Crashes the GPU (But CUDA Doesn't)
 
-Here's the catch. Across our testing, Vulkan caused **three GPU-level crashes** on large models:
+Here's the catch. In our initial testing, Vulkan caused **three GPU-level crashes** on large models (a fourth followed in run 4 — see Finding 5):
 
 | Model | Event |
 |-------|-------|
@@ -150,7 +150,62 @@ Vulkan didn't hit this on the same model because it ran at lower power (avg 324W
 → **Use Vulkan. No question.** 8.3× faster. This is almost certainly a CUDA bug that will get fixed, but until then, Vulkan is dramatically better.
 
 ### If you need reliability above all
-→ **Use CUDA.** Zero crashes in our testing. Thermal throttling is manageable with proper cooling.
+→ **Use CUDA.** Zero crashes across 4+ runs. Vulkan crashed 4 times — and not just on large models. Thermal throttling is manageable with proper cooling.
+
+---
+
+## Finding 5: Extra Runs Confirm the Pattern (Feb 12, Runs 4–5)
+
+We ran the full small/medium model suite again (runs 4 and 5) on February 12th to build statistical confidence. Run 5 was aborted early, but run 4 completed the CUDA phase and most of the Vulkan phase before — you guessed it — another GPU crash.
+
+### What Run 4 Tells Us
+
+**Vulkan is remarkably consistent.** Across runs 1 and 4 (three days apart), Vulkan throughput barely moved:
+
+| Model | Vulkan PP (Run 1) | Vulkan PP (Run 4) | Δ |
+|-------|-------------------|--------------------|---|
+| Llama 3.2 1B | 5,017 | 5,053 | +0.7% |
+| Gemma 3 1B | 4,901 | 4,897 | −0.1% |
+| Phi-4 Mini 3.8B | 1,864 | 1,872 | +0.4% |
+| Ministral 8B | 916 | 917 | +0.2% |
+
+Token generation numbers are equally stable (all within ±1.2%). This is the kind of reproducibility you want to see in benchmarks.
+
+**CUDA told a different story.** Small model performance (1B–8B) jumped dramatically between runs — Llama 1B prompt processing went from 4,657 to 43,856 t/s, a 9.4× increase. Meanwhile, 12B models stayed flat (Gemma 3 12B: 8,003 → 7,946, essentially unchanged). Both runs used the same llama.cpp build (commit `8872ad2`), so this appears to be a driver or runtime state change rather than a code difference. We're investigating whether a driver hotfix was applied between sessions.
+
+**The Mistral Nemo anomaly persists.** Run 4 confirms it: CUDA prompt processing is still stuck at 768 t/s (vs Vulkan's ~7,000+ in run 1). Whatever CUDA code path issue affects this model, it's deterministic and reproducible.
+
+### GPU Crash #4: Vulkan Dies on Ministral 8B
+
+Run 4's Vulkan phase crashed during **Ministral 8B** — smaller than any previous crash. The GPU monitoring markers tell the story:
+
+```
+MARKER: END   pp1024+tg16    @ 09:19:27  ← Test 1 completes fine
+MARKER: START pp1024+tg1024  @ 09:19:27  ← Test 2 begins
+MARKER: ERROR pp1024+tg1024  @ 09:20:45  ← Dead after 78 seconds
+MARKER: START pp16+tg1536    @ 09:20:45  ← Test 3 attempted
+MARKER: ERROR pp16+tg1536    @ 09:20:46  ← Instant fail (GPU already gone)
+```
+
+After Ministral 8B Vulkan died, Gemma 3 12B Vulkan and Mistral Nemo 12B Vulkan never ran. The GPU was unresponsive.
+
+This is significant because previous crashes all involved models ≥20B with ≥40 GB VRAM. Ministral 8B uses far less memory. The crash happened during sustained token generation (test 2), consistent with the pattern, but at a much smaller scale. This suggests the Vulkan stability issue isn't purely about VRAM pressure — it may be related to sustained compute load duration or a timing-dependent driver bug.
+
+### Updated Crash Tally
+
+| # | Date | Model | Backend | Failure | VRAM Used |
+|---|------|-------|---------|---------|-----------|
+| 1 | Feb 8 | GPT-OSS 20B | Vulkan | PCIe header corruption | ~40 GB |
+| 2 | Feb 9 | Llama 3.3 70B | Vulkan | `vk::DeviceLostError` | ~45 GB |
+| 3 | Feb 9 | Llama 3.3 70B | Vulkan | Same crash (retest) | ~45 GB |
+| 4 | Feb 12 | Ministral 8B | Vulkan | Error during sustained TG | ~5 GB |
+| — | — | *CUDA: zero crashes across all runs* | | | |
+
+Four Vulkan crashes, zero CUDA crashes. The pattern is clear: Vulkan on Blackwell has a stability problem that isn't limited to large models.
+
+### Run 5: Dead on Arrival
+
+Run 5 produced only partial GPU telemetry for Llama 3.2 1B CUDA before aborting. The CSV header was written but no benchmark data was captured. We cleaned up the partial files rather than include incomplete data.
 
 ---
 
@@ -168,10 +223,13 @@ Vulkan didn't hit this on the same model because it ran at lower power (avg 324W
 
 ## What's Next
 
-We're running the same test suite on Windows tomorrow (same hardware) to answer:
-- Does Windows Vulkan have the same coopmat2 optimizations?
-- Do the PCIe crashes reproduce under Windows drivers?
-- Is the Mistral Nemo anomaly OS-specific or architecture-specific?
+**Update (Feb 12):** We've now completed 4 full runs on Linux (plus one aborted). The extra runs strengthen our confidence in the findings — Vulkan's consistency is excellent, the Mistral Nemo anomaly is deterministic, and Vulkan's stability issues affect smaller models than initially thought.
+
+Next steps:
+- Run the same test suite on **Windows** (same hardware) to isolate OS vs architecture effects
+- Test whether the Vulkan crashes reproduce under Windows drivers
+- Determine if the Mistral Nemo CUDA anomaly is OS-specific
+- Investigate the CUDA small-model performance jump between Feb 9 and Feb 12 runs
 
 Results will be published in the same repo.
 

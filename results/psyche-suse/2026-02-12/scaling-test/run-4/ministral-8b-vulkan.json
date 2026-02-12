@@ -1,0 +1,59 @@
+{
+  "runtime_info": {
+    "name": "llamafile",
+    "version": "1.0.0-llama-bench",
+    "commit": "unknown"
+  },
+  "system_info": {
+    "cpu_name": "AMD Ryzen 7 9800X3D 8-Core Processor",
+    "cpu_arch": "x86_64",
+    "ram_gb": 60.44,
+    "kernel_type": "Linux",
+    "kernel_release": "6.18.9-1-default",
+    "version": "#1 SMP PREEMPT_DYNAMIC Fri Feb  6 18:53:03 UTC 2026 (6d9f8a8)"
+  },
+  "accelerator_info": {
+    "name": "NVIDIA RTX PRO 6000 Blackwell Server Edition",
+    "manufacturer": "NVIDIA",
+    "memory_gb": 0.0,
+    "type": "GPU"
+  },
+  "results": [
+    {
+      "build_commit": "unknown",
+      "build_number": 7789,
+      "model_name": "llama",
+      "model_quant_str": "Medium",
+      "model_params_str": "",
+      "model_filename": "/home/coulof/models/Ministral-8B-Instruct-2410-Q4_K_M.gguf",
+      "model_type": "llama 8B Q4_K - Medium",
+      "model_size": 4903616512,
+      "model_n_params": 8019808256,
+      "n_prompt": 1024,
+      "n_gen": 16,
+      "test_time": "",
+      "avg_time_ms": 1646.713377,
+      "stddev_time_ms": 0,
+      "prompt_tps": 917.052981,
+      "prompt_tps_watt": 0.0,
+      "prompt_tps_stddev": 0.0,
+      "gen_tps": 30.18338,
+      "gen_tps_watt": 0.0,
+      "gen_tps_stddev": 0.0,
+      "name": "pp1024+tg16",
+      "power_watts": 0.0,
+      "ttft_ms": 1149.7511435625,
+      "main_gpu": 0,
+      "samples_ns": [
+        1116620328,
+        530093049
+      ]
+    }
+  ],
+  "results_summary": {
+    "avg_prompt_tps": 917.052981,
+    "avg_gen_tps": 30.18338,
+    "avg_ttft_ms": 1149.7511435625,
+    "performance_score": 288.7483310508028
+  }
+}
