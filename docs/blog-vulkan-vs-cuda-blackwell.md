@@ -12,8 +12,8 @@ We benchmarked 8 LLM models (1B to 70B parameters) across two backends, two oper
 
 - Mistral Nemo 12B runs **8.3x faster on Vulkan** than CUDA (not a typo)
 - Vulkan wins token generation at 32B (+41%) and 70B (+18%)
-- Six GPU crashes across all testing: four Vulkan, one CUDA Linux, one CUDA Windows
-- CUDA thermal throttles on sustained 32B generation, dropping from 52 t/s to 11.6 t/s
+- CUDA workloads thermal-throttled gracefully at 95°C. Vulkan workloads crashed with unrecoverable device-lost errors instead.
+- Six GPU crashes total: four Vulkan, two CUDA. Thermal throttling on sustained 32B generation dropped CUDA from 52 t/s to 11.6 t/s.
 - Linux and Windows CUDA performance within 5 to 10%: OS choice barely matters
 
 ---
@@ -124,6 +124,8 @@ Vulkan crashes follow a consistent pattern: sustained token generation triggers 
 **Crash #6 surprised us most.** Ministral 8B uses only ~5 GB VRAM. Previous crashes all involved models at 20B or larger with 40+ GB allocated. This broke our "large model only" hypothesis. The Vulkan stability issue relates to sustained compute duration, not just memory pressure.
 
 **CUDA's 70B crashes tell a parallel story.** Linux run 3 produced a crash dump instead of benchmark results. Windows refused to load 70B onto the GPU at all, falling back to CPU (1.2 t/s). The 70B model pushes this hardware to its limits on both backends.
+
+**The key difference is how each backend fails.** Under thermal pressure, CUDA workloads thermal-throttled gracefully. The driver downclocked the GPU, dropped power from ~500W to ~150W, and the workload continued at reduced performance (see Finding 4). Vulkan workloads did not get that chance. Instead of throttling, they triggered `VK_ERROR_DEVICE_LOST` at the PCIe level, an unrecoverable error that required a full power cycle. The Vulkan specification defines device loss as a point of no return: the application must destroy the device and start over. In practice, our system could not even reset the PCIe bus without a reboot. Whether this reflects a difference in driver-level error recovery between the two APIs, or whether Vulkan's coopmat2 compute path simply hits thermal limits faster than the driver can react, remains an open question.
 
 <!-- CHART: llama-3.3-70b-vulkan.png -->
 *Fig 5: Llama 3.3 70B on Vulkan. Power spikes to 513W during prompt processing, then drops to ~120W. Temperature climbs to 104C even after power drops. The GPU has stopped computing but retains residual heat.*
