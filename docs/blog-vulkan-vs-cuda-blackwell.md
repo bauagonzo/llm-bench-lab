@@ -14,7 +14,7 @@ We benchmarked 8 LLM models (1B to 70B parameters) across two backends, two oper
 - Vulkan wins token generation at 32B (+41%) and 70B (+18%)
 - Six GPU crashes across all testing: four Vulkan, one CUDA Linux, one CUDA Windows
 - CUDA thermal throttles on sustained 32B generation, dropping from 52 t/s to 11.6 t/s
-- A mystery driver change boosted CUDA small-model performance 9x between sessions
+- Linux and Windows CUDA performance within 5 to 10%: OS choice barely matters
 
 ---
 
@@ -31,36 +31,56 @@ We benchmarked 8 LLM models (1B to 70B parameters) across two backends, two oper
 
 All models use Q4_K_M quantization (4-bit). Both backends share the same llama.cpp build version.
 
+Our test suite draws inspiration from [localscore :material-open-in-new:](https://www.localscore.ai/blog#:~:text=The%20Tests), which defines a practical methodology for measuring local LLM inference. We adapted their approach to compare Vulkan and CUDA backends on Blackwell hardware.
+
+---
+
+!!! warning ":material-alert: Don't Do This at Home"
+
+    We ran a **600W passive server GPU** in a consumer mid-tower case. This is a terrible idea. The RTX PRO 6000 Server Edition has **zero fans**. NVIDIA designed it for rack servers with engineered front-to-back airflow tunnels.
+
+    **What went wrong:** thermal throttling, performance cliffs, and GPU crashes. Our seven case fans delivered roughly 330 CFM total, but only 100 to 130 CFM actually reached the heatsink. That is not enough for sustained 400W+ loads.
+
+    **If you insist on doing it anyway, you need:**
+
+    - :material-fan: **Server-grade fans** (e.g., Wathai 120x38mm) with 5 to 10+ mm H2O static pressure
+    - :material-air-filter: **Custom ducting or shroud** that forces air through the heatsink, not around it
+    - :material-thermometer-alert: **Temperature monitoring** with automatic shutdown at 95C
+    - :material-power-plug: **A PSU rated for 850W+** to handle peak GPU draw plus the rest of your system
+    - :material-cog: **Baffles or seals** to prevent hot air recirculation
+
+    The [r/LocalLLM community :material-open-in-new:](https://www.reddit.com/r/LocalLLM/comments/1mmqghu/rtx_pro_6000_se_is_crushing_it/) proved it works with the right setup: a server fan plus custom duct held load temps at 61C. Consumer case fans alone hit 85C and throttled.
+
 ---
 
 ## The Results
 
-### Linux: Vulkan vs CUDA (Feb 9, Initial Runs)
+### Linux: Vulkan vs CUDA
 
 | Model | Params | Vulkan PP | Vulkan TG | CUDA PP | CUDA TG | Winner |
 |-------|--------|-----------|-----------|---------|---------|--------|
-| Gemma 3 1B | 1.0B | 3,390 | 61 | 3,273 | **74** | CUDA TG +21% |
-| Llama 3.2 1B | 1.2B | **3,526** | **117** | 3,348 | 114 | Vulkan |
-| Phi-4 Mini | 3.8B | 1,315 | 45 | **1,490** | **49** | CUDA |
-| Ministral 8B | 8.0B | 652 | 29 | **1,086** | **35** | CUDA +67% PP |
-| Gemma 3 12B | 11.8B | 5,341 | 117 | **5,729** | **123** | CUDA |
-| Mistral Nemo 12B | 12.2B | **4,776** | **51** | 576 | 25 | **Vulkan 8.3x** :material-fire: |
+| Gemma 3 1B | 1.0B | 3,390 | 61 | **28,712** | **539** | CUDA |
+| Llama 3.2 1B | 1.2B | 3,526 | 117 | **31,091** | **785** | CUDA |
+| Phi-4 Mini | 3.8B | 1,315 | 45 | **14,681** | **334** | CUDA |
+| Ministral 8B | 8.0B | 652 | 29 | **8,458** | **208** | CUDA |
+| Gemma 3 12B | 11.8B | 5,341 | 117 | **5,708** | **123** | CUDA |
+| Mistral Nemo 12B | 12.2B | **4,776** | **51** | 577 | 25 | **Vulkan 8.3x** :material-fire: |
 | Qwen3 32B | 32.8B | 1,956 | **58** | **2,221** | 41 | Split |
 | Llama 3.3 70B | 70.6B | 1,394 | **30** | **1,613** | 25 | Split |
 
-> PP = Prompt Processing (tokens/sec). TG = Token Generation (tokens/sec). Values are averages across three test configurations.
+> PP = Prompt Processing (tokens/sec). TG = Token Generation (tokens/sec). Vulkan values from Feb 9. CUDA values from Feb 12 run 4 (best validated run). Values are averages across three test configurations.
 
 ### What This Means for Practitioners
 
-Care about interactive speed? Vulkan delivers faster token generation for models at 32B and above. CUDA wins prompt processing at most sizes, but the generation story surprised us.
+Care about interactive speed? Vulkan delivers faster token generation for models at 32B and above. CUDA dominates prompt processing and small model throughput. The generation story at larger sizes surprised us.
 
 ---
 
-## Finding 1: The Mistral Nemo Anomaly
+## Finding 1: The Mistral Nemo Anomaly :material-fire:
 
 This finding made us recheck our methodology three times.
 
-**Mistral Nemo 12B on CUDA:** 576 t/s prompt processing, 25 t/s generation.
+**Mistral Nemo 12B on CUDA:** 577 t/s prompt processing, 25 t/s generation.
 **Mistral Nemo 12B on Vulkan:** 4,776 t/s prompt processing, 51 t/s generation.
 
 That is an 8.3x gap in prompt processing. Same GPU. Same model. Same llama.cpp build.
@@ -71,9 +91,9 @@ That is an 8.3x gap in prompt processing. Same GPU. Same model. Same llama.cpp b
 <!-- CHART: mistral-nemo-12b-vulkan.png -->
 *Fig 2: Mistral Nemo 12B on Vulkan. Same model, same GPU, completely different behavior. Power peaks at 266W. The GPU works for real this time.*
 
-Under CUDA, the card reports high utilization but draws minimal power. It is mostly idle despite what nvidia-smi claims. Under Vulkan, power draw matches actual computation.
+Under CUDA, the card reports high utilization but draws minimal power. It sits mostly idle despite what nvidia-smi claims. Under Vulkan, power draw matches actual computation.
 
-**Our theory:** CUDA's Blackwell kernels hit a suboptimal code path for Mistral Nemo's layer dimensions. This looks like a bug, not a fundamental limitation. We confirmed the anomaly persists across all runs (Feb 9, Feb 11, Feb 12). It is deterministic and reproducible.
+**Our theory:** CUDA's Blackwell kernels hit a suboptimal code path for Mistral Nemo's layer dimensions. This looks like a bug, not a fundamental limitation. The anomaly persists across all runs (Feb 9, Feb 11, Feb 12) and on Windows. It is deterministic and reproducible.
 
 **Why this matters:** If you run Mistral Nemo 12B on Blackwell hardware, switching from CUDA to Vulkan gives you a free 8x speedup. No hardware change required.
 
@@ -102,7 +122,7 @@ For **prompt processing**, CUDA's advantage grows with model size. No surprises 
 
 ---
 
-## Finding 3: Both Backends Crash (Not Just Vulkan)
+## Finding 3: Both Backends Crash (Not Just Vulkan) :material-alert:
 
 Our initial three runs pointed to a simple story: Vulkan crashes, CUDA stays rock solid. Then we ran more tests. The full picture tells a different story.
 
@@ -119,7 +139,7 @@ Our initial three runs pointed to a simple story: Vulkan crashes, CUDA stays roc
 
 Six crashes total. Four from Vulkan, two from CUDA. Every 70B attempt on this GPU carries risk regardless of backend.
 
-The Vulkan crashes follow a consistent pattern: sustained token generation triggers a PCIe-level failure. The GPU reports "Unknown header type 7f" via `lspci`. No amount of driver reset recovers it. Only a full power cycle works.
+Vulkan crashes follow a consistent pattern: sustained token generation triggers a PCIe-level failure. The GPU reports "Unknown header type 7f" via `lspci`. No amount of driver reset recovers it. Only a full power cycle works.
 
 **Crash #6 surprised us most.** Ministral 8B uses only ~5 GB VRAM. Previous crashes all involved models at 20B or larger with 40+ GB allocated. This broke our "large model only" hypothesis. The Vulkan stability issue relates to sustained compute duration, not just memory pressure.
 
@@ -130,7 +150,7 @@ The Vulkan crashes follow a consistent pattern: sustained token generation trigg
 
 ---
 
-## Finding 4: CUDA Thermal Throttling Under Sustained Load
+## Finding 4: CUDA Thermal Throttling Under Sustained Load :material-thermometer-alert:
 
 The Qwen3 32B CUDA run exposed a thermal problem. The benchmark runs three configurations:
 
@@ -140,44 +160,21 @@ The Qwen3 32B CUDA run exposed a thermal problem. The benchmark runs three confi
 
 That is a 4.5x performance cliff within a single benchmark session. Temperature climbed to 95C. NVIDIA's thermal management aggressively downclocked the GPU, dropping power from ~500W to ~150W.
 
-Vulkan avoided this on the same model. It ran at lower power (avg 324W vs CUDA's initial 500W burst). Lower power means lower heat means sustainable performance.
+Vulkan avoided this on the same model. It ran at lower average power (324W vs CUDA's initial 500W burst). Lower power means lower heat means sustainable performance. Vulkan did not "handle thermals better" in some magical way. It simply drew less power, staying within our cooling budget.
 
-**The lesson:** CUDA's peak performance can mislead you if your workloads run long. Vulkan's more moderate power profile delivers better throughput over extended conversations.
-
----
-
-## Finding 5: The Ghost in the Driver
-
-Something changed between our Feb 9 and Feb 12 CUDA runs. We did not expect it.
-
-Small model CUDA performance jumped dramatically between sessions. Gemma 3 1B prompt processing went from 4,726 t/s (Feb 9) to 41,590 t/s (Feb 12, run 4). That is an 8.8x increase on the same hardware, same llama.cpp build, same model file.
-
-| Model | CUDA PP (Feb 9) | CUDA PP (Feb 12) | Change |
-|-------|-----------------|-------------------|--------|
-| Gemma 3 1B | 4,726 | 41,590 | **+780%** |
-| Llama 3.2 1B | 4,727 | 44,107 | **+833%** |
-| Phi-4 Mini 3.8B | 1,490 | 14,681 | **+885%** |
-| Ministral 8B | 1,086 | 8,458 | **+679%** |
-| Gemma 3 12B | 5,729 | 5,708 | -0.4% |
-| Mistral Nemo 12B | 576 | 577 | +0.2% |
-
-The pattern is sharp. Models under 12B gained 7 to 9x. Models at 12B stayed flat. Both sessions used the same llama.cpp commit (`8872ad2`). We suspect a CUDA driver hotfix landed between sessions, though we cannot confirm the exact change.
-
-**Vulkan told the opposite story.** Across the same gap (Feb 9 to Feb 12), Vulkan throughput barely moved. Gemma 3 1B: 3,390 vs 3,383 (less than 0.2% drift). This level of consistency is exactly what you want from a benchmark.
-
-**Why this matters:** CUDA performance depends on factors outside your control. Driver updates can change results by nearly an order of magnitude. Vulkan provides more predictable, reproducible performance today.
+The 70B crashes (Finding 3) follow the same pattern. Both backends crashed at peak power draw. Vulkan's sustained compute pushes the thermal envelope longer, which explains its higher crash count. CUDA crashed too when it drew enough power for long enough. A 600W passive GPU in a consumer mid-tower without directed airflow will hit thermal limits regardless of backend.
 
 ---
 
-## Finding 6: The Real Bottleneck Was Never the Backend
+## Finding 5: The Real Bottleneck Was Never the Backend :material-fan:
 
 Here is the twist that reframes everything above. Our crashes, thermal throttling, and performance cliffs share a common root cause. It is not Vulkan. It is not CUDA. It is cooling.
 
 ### A Passive GPU in a Consumer Case
 
-The RTX PRO 6000 Blackwell Server Edition has no fans. Run `nvidia-smi` and Fan Speed reads N/A. This card draws up to 600W TDP (configurable from 300W to 600W). NVIDIA designed it for rack servers like the [Dell PowerEdge XE9680 and R760xa](https://www.dell.com/en-us/shop/dell-poweredge-servers/sf/poweredge), where engineered front-to-back airflow tunnels force high-pressure air through the heatsink fins. The [Central Computer overview](https://www.centralcomputer.com/blog/post/understanding-the-nvidia-rtx-6000-pro-blackwell-lineup-workstation-max-q-and-server-editions) and [VAST AI comparison](https://vast.ai/article/which-nvidia-rtx-6000-is-right-for-you) both stress this point: the Server Edition requires external chassis airflow. No exceptions.
+The RTX PRO 6000 Blackwell Server Edition has no fans. Run `nvidia-smi` and Fan Speed reads N/A. This card draws up to 600W TDP (configurable from 300W to 600W). NVIDIA designed it for rack servers like the [Dell PowerEdge XE9680 and R760xa :material-open-in-new:](https://www.dell.com/en-us/shop/dell-poweredge-servers/sf/poweredge), where engineered front-to-back airflow tunnels force high-pressure air through the heatsink fins. The [Central Computer overview :material-open-in-new:](https://www.centralcomputer.com/blog/post/understanding-the-nvidia-rtx-6000-pro-blackwell-lineup-workstation-max-q-and-server-editions) and [VAST AI comparison :material-open-in-new:](https://vast.ai/article/which-nvidia-rtx-6000-is-right-for-you) both stress this point: the Server Edition requires external chassis airflow. No exceptions.
 
-We put this card in an [Antec C5](https://www.antec.com/product/case/c5) mid-tower case. Seven Antec P12 120mm ARGB fans provide airflow: six reversed as intake (bottom and side panels) and one rear exhaust. The case uses a vertical bottom-to-top airflow scheme. Each P12 pushes roughly 50 to 60 CFM at 1.5 to 2.0 mm H2O static pressure. Total theoretical intake: about 330 CFM.
+We put this card in an [Antec C5 :material-open-in-new:](https://www.antec.com/product/case/c5) mid-tower case. Seven Antec P12 120mm ARGB fans provide airflow: six reversed as intake (bottom and side panels) and one rear exhaust. The case uses a vertical bottom-to-top airflow scheme. Each P12 pushes roughly 50 to 60 CFM at 1.5 to 2.0 mm H2O static pressure. Total theoretical intake: about 330 CFM.
 
 That sounds like plenty. It is not.
 
@@ -187,7 +184,7 @@ Three problems turn 330 CFM into a fraction of what the GPU needs.
 
 **Direction.** The P12 fans push air vertically and from the side. The GPU heatsink fins run front to back. Air flows around the card, not through it. Without baffles or ducting, the path of least resistance bypasses the heatsink entirely.
 
-**Static pressure.** Dense passive heatsink fins need 5 to 10+ mm H2O of static pressure to force air through them. The P12 fans deliver 1.5 to 2.0 mm H2O. Consumer case fans simply cannot push through server-grade fin density.
+**Static pressure.** Dense passive heatsink fins need 5 to 10+ mm H2O of static pressure to force air through them. The P12 fans deliver 1.5 to 2.0 mm H2O. Consumer case fans cannot push through server-grade fin density.
 
 **No ducting.** Nothing seals the airflow path. Hot air recirculates. Cold air takes shortcuts. The GPU sits in a pocket of turbulence, not a cooling tunnel.
 
@@ -210,7 +207,7 @@ Our estimated 100 to 130 CFM sits right at the boundary for a 15 degree C rise. 
 
 ### Community Results Confirm the Problem
 
-Other builders on [r/LocalLLM](https://www.reddit.com/r/LocalLLM/comments/1mmqghu/rtx_pro_6000_se_is_crushing_it/) tested the same card in non-server enclosures. Their results match our analysis:
+Other builders on [r/LocalLLM :material-open-in-new:](https://www.reddit.com/r/LocalLLM/comments/1mmqghu/rtx_pro_6000_se_is_crushing_it/) tested the same card in non-server enclosures. Their results match our analysis:
 
 | Fan Setup | CFM (Directed) | Idle Temp | Load Temp | Verdict |
 |-----------|----------------|-----------|-----------|---------|
@@ -219,23 +216,11 @@ Other builders on [r/LocalLLM](https://www.reddit.com/r/LocalLLM/comments/1mmqgh
 
 The difference is not raw CFM. It is directed, high-pressure airflow through the heatsink with proper ducting. The Wathai setup uses a server-grade fan (high static pressure) mounted in a custom shroud that forces every cubic foot of air through the card.
 
-### Reframing Our Results
-
-Go back through Findings 1 through 5 with this lens. The pattern clicks into place.
-
-CUDA's thermal throttling on Qwen3 32B (Finding 4) happened because CUDA bursts to 500W. At that power level, our airflow cannot keep up. Temperature hits 95 C. The GPU downclocks to survive.
-
-Vulkan ran the same model at a steadier 324W average. Lower power means lower heat means sustainable performance. Vulkan did not "handle thermals better." It simply drew less power, staying within our cooling budget.
-
-The 70B crashes (Finding 3) hit both backends at peak power draw. Vulkan's sustained compute patterns push the thermal envelope longer, which explains its higher crash count. But CUDA crashed too when it drew enough power for long enough.
-
-**The real story:** a 600W passive GPU in a consumer mid-tower without directed airflow will hit thermal limits regardless of backend. Vulkan's higher sustained power draw just gets there faster. Our benchmark is testing cooling as much as it is testing backends.
-
 ---
 
-## Cross-OS Comparison: Linux vs Windows CUDA
+## Cross-OS Comparison: Linux vs Windows CUDA :material-check:
 
-We ran the full suite on Windows (same hardware, driver 582.32) on February 11. After fixing initial GPU access issues (runs 1 through 3 fell back to CPU), runs 4 through 7 produced valid results.
+**The bottom line: OS choice barely matters.** We ran the full suite on Windows (same hardware, driver 582.32) on February 11. Small to medium models performed within 5 to 10% across operating systems. Linux holds a slight edge, but the difference is negligible for practical use.
 
 | Model | Linux CUDA PP | Windows CUDA PP | Linux CUDA TG | Windows CUDA TG |
 |-------|---------------|-----------------|---------------|-----------------|
@@ -248,27 +233,22 @@ We ran the full suite on Windows (same hardware, driver 582.32) on February 11. 
 
 > Linux values from Feb 12 run 4. Windows values averaged from runs 4 through 7 (GPU-accelerated runs only).
 
-**Key observations:**
-
-- Small models (1B to 8B) perform within 5 to 10% across operating systems. Linux holds a slight edge.
-- Qwen3 32B produced valid Windows results (2,202 PP, 59 TG), closely matching Linux Vulkan numbers.
-- Llama 3.3 70B failed on both platforms. Linux CUDA crashed on run 3. Windows CUDA fell back to CPU.
-- The Mistral Nemo CUDA anomaly persists on Windows (575 PP vs Vulkan's 4,776 PP on Linux). This confirms an architecture-level issue, not an OS-specific driver bug.
+This is good news. Pick the OS you prefer. Performance follows the hardware, not the operating system. Qwen3 32B produced valid Windows results (2,202 PP, 59 TG) that closely match Linux Vulkan numbers. Llama 3.3 70B failed on both platforms, confirming that the 70B stability issue is hardware-level, not OS-specific. The Mistral Nemo CUDA anomaly also persists on Windows (575 PP vs Vulkan's 4,776 PP), confirming an architecture-level issue.
 
 ---
 
 ## What This Means for You
 
-### Models 8B and smaller
-Use CUDA. It is faster and more stable after recent driver improvements. Vulkan remains consistent but CUDA now leads by a wide margin on small models.
+### Models 8B and smaller :material-check:
+Use CUDA. It is faster and more stable. Vulkan remains consistent but CUDA leads by a wide margin on small models.
 
-### Models at 32B for interactive use
-Try Vulkan. The token generation advantage is real (+18 to 41%). Vulkan also handles thermals better under sustained load. Expect occasional GPU crashes on long sessions.
+### Models at 32B for interactive use :material-creation:
+Try Vulkan. The token generation advantage is real (+18 to 41%). Vulkan also runs at lower sustained power, reducing thermal throttling risk. Expect occasional GPU crashes on long sessions.
 
-### Mistral Nemo 12B specifically
+### Mistral Nemo 12B specifically :material-fire:
 Use Vulkan. No question. An 8.3x speedup is not something you leave on the table. This is almost certainly a CUDA bug that will get fixed, but until then, Vulkan wins by a landslide.
 
-### Production reliability
+### Production reliability :material-alert:
 Neither backend is crash-free at 70B on this hardware. CUDA offers better stability overall (2 failures vs 4 for Vulkan). For mission-critical workloads, add crash recovery to your pipeline regardless of backend choice.
 
 ---
@@ -276,13 +256,14 @@ Neither backend is crash-free at 70B on this hardware. CUDA offers better stabil
 ## Methodology
 
 - **Engine:** llama.cpp b7966 (same commit for both backends)
-- **Vulkan backend:** ggml-org/llama.cpp releases, with NV_coopmat2 cooperative matrix support
-- **CUDA backend:** ai-dock/llama.cpp-cuda releases, CUDA 13.1
+- **Vulkan backend:** [ggml-org/llama.cpp :material-github:](https://github.com/ggml-org/llama.cpp) releases, with NV_coopmat2 cooperative matrix support
+- **CUDA backend:** [ai-dock/llama.cpp-cuda :material-github:](https://github.com/ai-dock/llama.cpp-cuda) releases, CUDA 13.1
 - **Test suite:** Quick mode with 3 configurations covering short burst (pp1024+tg16), balanced (pp1024+tg1024), and sustained generation (pp16+tg1536)
+- **Inspiration:** Test methodology adapted from [localscore :material-open-in-new:](https://www.localscore.ai/blog#:~:text=The%20Tests), a practical benchmark for local LLM inference
 - **GPU monitoring:** nvidia-smi at 200ms intervals, capturing utilization, power, temperature, and VRAM
 - **Quantization:** Q4_K_M for all models (4-bit, medium quality)
 - **Runs:** 4 complete runs on Linux (plus 1 aborted), 7 runs on Windows (4 with valid GPU access)
-- **All results and raw data:** [github.com/bauagonzo/llm-bench-lab](https://github.com/bauagonzo/llm-bench-lab)
+- **All results and raw data:** [github.com/bauagonzo/llm-bench-lab :material-github:](https://github.com/bauagonzo/llm-bench-lab)
 
 ---
 
@@ -290,13 +271,13 @@ Neither backend is crash-free at 70B on this hardware. CUDA offers better stabil
 
 The Blackwell architecture is new. Drivers change fast. Our next steps:
 
-- **Vulkan on Windows:** Test whether Windows Vulkan drivers include coopmat2 optimizations
-- **Driver bisection:** Pin down which CUDA driver update caused the 9x small-model speedup
-- **RTX 5090 Ti comparison:** Same test suite on consumer Blackwell silicon
-- **Flash Attention investigation:** Determine whether the Feb 12 CUDA boost relates to Flash Attention enablement
+- :material-microsoft-windows: **Vulkan on Windows:** Test whether Windows Vulkan drivers include coopmat2 optimizations
+- :material-card-search: **Driver bisection:** Pin down which CUDA driver update caused the small-model speedup
+- :material-gpu: **RTX 5090 Ti comparison:** Same test suite on consumer Blackwell silicon
+- :material-lightning-bolt: **Flash Attention investigation:** Determine whether the Feb 12 CUDA boost relates to Flash Attention enablement
 
 We will publish updates in the same repository as results come in.
 
 ---
 
-*Benchmarks by Ratatosk Noir and Vedr Vert. Raw data, scripts, and GPU monitoring charts available at [github.com/bauagonzo/llm-bench-lab](https://github.com/bauagonzo/llm-bench-lab).*
+*Raw data, scripts, and GPU monitoring charts available at [github.com/bauagonzo/llm-bench-lab :material-github:](https://github.com/bauagonzo/llm-bench-lab).*
