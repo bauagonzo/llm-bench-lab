@@ -1,0 +1,119 @@
+{
+  "runtime_info": {
+    "name": "llamafile",
+    "version": "1.0.0-llama-bench",
+    "commit": "8872ad2"
+  },
+  "system_info": {
+    "cpu_name": "AMD Ryzen 7 9800X3D 8-Core Processor",
+    "cpu_arch": "x86_64",
+    "ram_gb": 60.44,
+    "kernel_type": "Linux",
+    "kernel_release": "6.18.9-1-default",
+    "version": "#1 SMP PREEMPT_DYNAMIC Fri Feb  6 18:53:03 UTC 2026 (6d9f8a8)"
+  },
+  "accelerator_info": {
+    "name": "NVIDIA GeForce RTX 5070 Ti",
+    "manufacturer": "NVIDIA",
+    "memory_gb": 0.0,
+    "type": "GPU"
+  },
+  "results": [
+    {
+      "build_commit": "8872ad2",
+      "build_number": 1,
+      "model_name": "phi3",
+      "model_quant_str": "Medium",
+      "model_params_str": "",
+      "model_filename": "/home/coulof/models/Phi-4-mini-instruct-Q4_K_M.gguf",
+      "model_type": "phi3 3B Q4_K - Medium",
+      "model_size": 2483623296,
+      "model_n_params": 3836021856,
+      "n_prompt": 1024,
+      "n_gen": 16,
+      "test_time": "",
+      "avg_time_ms": 163.358178,
+      "stddev_time_ms": 0,
+      "prompt_tps": 10624.217826,
+      "prompt_tps_watt": 0.0,
+      "prompt_tps_stddev": 0.0,
+      "gen_tps": 238.896494,
+      "gen_tps_watt": 0.0,
+      "gen_tps_stddev": 0.0,
+      "name": "pp1024+tg16",
+      "power_watts": 0.0,
+      "ttft_ms": 100.56947925,
+      "main_gpu": 0,
+      "samples_ns": [
+        96383566,
+        66974612
+      ]
+    },
+    {
+      "build_commit": "8872ad2",
+      "build_number": 1,
+      "model_name": "phi3",
+      "model_quant_str": "Medium",
+      "model_params_str": "",
+      "model_filename": "/home/coulof/models/Phi-4-mini-instruct-Q4_K_M.gguf",
+      "model_type": "phi3 3B Q4_K - Medium",
+      "model_size": 2483623296,
+      "model_n_params": 3836021856,
+      "n_prompt": 1024,
+      "n_gen": 1024,
+      "test_time": "",
+      "avg_time_ms": 4575.073929,
+      "stddev_time_ms": 0,
+      "prompt_tps": 10704.530487,
+      "prompt_tps_watt": 0.0,
+      "prompt_tps_stddev": 0.0,
+      "gen_tps": 228.601356,
+      "gen_tps_watt": 0.0,
+      "gen_tps_stddev": 0.0,
+      "name": "pp1024+tg1024",
+      "power_watts": 0.0,
+      "ttft_ms": 100.03485824414062,
+      "main_gpu": 0,
+      "samples_ns": [
+        95660431,
+        4479413498
+      ]
+    },
+    {
+      "build_commit": "8872ad2",
+      "build_number": 1,
+      "model_name": "phi3",
+      "model_quant_str": "Medium",
+      "model_params_str": "",
+      "model_filename": "/home/coulof/models/Phi-4-mini-instruct-Q4_K_M.gguf",
+      "model_type": "phi3 3B Q4_K - Medium",
+      "model_size": 2483623296,
+      "model_n_params": 3836021856,
+      "n_prompt": 16,
+      "n_gen": 1536,
+      "test_time": "",
+      "avg_time_ms": 6736.55568,
+      "stddev_time_ms": 0,
+      "prompt_tps": 2554.073324,
+      "prompt_tps_watt": 0.0,
+      "prompt_tps_stddev": 0.0,
+      "gen_tps": 228.221924,
+      "gen_tps_watt": 0.0,
+      "gen_tps_stddev": 0.0,
+      "name": "pp16+tg1536",
+      "power_watts": 0.0,
+      "ttft_ms": 10.646202985026044,
+      "main_gpu": 0,
+      "samples_ns": [
+        6264503,
+        6730291177
+      ]
+    }
+  ],
+  "results_summary": {
+    "avg_prompt_tps": 7960.940545666667,
+    "avg_gen_tps": 231.90659133333335,
+    "avg_ttft_ms": 70.41684682638889,
+    "performance_score": 2970.7558863456575
+  }
+}

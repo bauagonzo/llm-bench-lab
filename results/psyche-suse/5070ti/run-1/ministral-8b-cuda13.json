@@ -1,0 +1,119 @@
+{
+  "runtime_info": {
+    "name": "llamafile",
+    "version": "1.0.0-llama-bench",
+    "commit": "8872ad2"
+  },
+  "system_info": {
+    "cpu_name": "AMD Ryzen 7 9800X3D 8-Core Processor",
+    "cpu_arch": "x86_64",
+    "ram_gb": 60.44,
+    "kernel_type": "Linux",
+    "kernel_release": "6.18.9-1-default",
+    "version": "#1 SMP PREEMPT_DYNAMIC Fri Feb  6 18:53:03 UTC 2026 (6d9f8a8)"
+  },
+  "accelerator_info": {
+    "name": "NVIDIA GeForce RTX 5070 Ti",
+    "manufacturer": "NVIDIA",
+    "memory_gb": 0.0,
+    "type": "GPU"
+  },
+  "results": [
+    {
+      "build_commit": "8872ad2",
+      "build_number": 1,
+      "model_name": "llama",
+      "model_quant_str": "Medium",
+      "model_params_str": "",
+      "model_filename": "/home/coulof/models/Ministral-8B-Instruct-2410-Q4_K_M.gguf",
+      "model_type": "llama 8B Q4_K - Medium",
+      "model_size": 4903616512,
+      "model_n_params": 8019808256,
+      "n_prompt": 1024,
+      "n_gen": 16,
+      "test_time": "",
+      "avg_time_ms": 288.535144,
+      "stddev_time_ms": 0,
+      "prompt_tps": 5901.376201,
+      "prompt_tps_watt": 0.0,
+      "prompt_tps_stddev": 0.0,
+      "gen_tps": 139.110722,
+      "gen_tps_watt": 0.0,
+      "gen_tps_stddev": 0.0,
+      "name": "pp1024+tg16",
+      "power_watts": 0.0,
+      "ttft_ms": 180.70736649999998,
+      "main_gpu": 0,
+      "samples_ns": [
+        173518848,
+        115016296
+      ]
+    },
+    {
+      "build_commit": "8872ad2",
+      "build_number": 1,
+      "model_name": "llama",
+      "model_quant_str": "Medium",
+      "model_params_str": "",
+      "model_filename": "/home/coulof/models/Ministral-8B-Instruct-2410-Q4_K_M.gguf",
+      "model_type": "llama 8B Q4_K - Medium",
+      "model_size": 4903616512,
+      "model_n_params": 8019808256,
+      "n_prompt": 1024,
+      "n_gen": 1024,
+      "test_time": "",
+      "avg_time_ms": 7836.935708,
+      "stddev_time_ms": 0,
+      "prompt_tps": 5764.659802,
+      "prompt_tps_watt": 0.0,
+      "prompt_tps_stddev": 0.0,
+      "gen_tps": 133.693651,
+      "gen_tps_watt": 0.0,
+      "gen_tps_stddev": 0.0,
+      "name": "pp1024+tg1024",
+      "power_watts": 0.0,
+      "ttft_ms": 185.1138597529297,
+      "main_gpu": 0,
+      "samples_ns": [
+        177634073,
+        7659301635
+      ]
+    },
+    {
+      "build_commit": "8872ad2",
+      "build_number": 1,
+      "model_name": "llama",
+      "model_quant_str": "Medium",
+      "model_params_str": "",
+      "model_filename": "/home/coulof/models/Ministral-8B-Instruct-2410-Q4_K_M.gguf",
+      "model_type": "llama 8B Q4_K - Medium",
+      "model_size": 4903616512,
+      "model_n_params": 8019808256,
+      "n_prompt": 16,
+      "n_gen": 1536,
+      "test_time": "",
+      "avg_time_ms": 11467.460645,
+      "stddev_time_ms": 0,
+      "prompt_tps": 1423.324571,
+      "prompt_tps_watt": 0.0,
+      "prompt_tps_stddev": 0.0,
+      "gen_tps": 134.075645,
+      "gen_tps_watt": 0.0,
+      "gen_tps_stddev": 0.0,
+      "name": "pp16+tg1536",
+      "power_watts": 0.0,
+      "ttft_ms": 18.69976314453125,
+      "main_gpu": 0,
+      "samples_ns": [
+        11241287,
+        11456219358
+      ]
+    }
+  ],
+  "results_summary": {
+    "avg_prompt_tps": 4363.120191333333,
+    "avg_gen_tps": 135.62667266666668,
+    "avg_ttft_ms": 128.17366313248698,
+    "performance_score": 1665.1287877225675
+  }
+}

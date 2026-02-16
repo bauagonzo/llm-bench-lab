@@ -1,0 +1,119 @@
+{
+  "runtime_info": {
+    "name": "llamafile",
+    "version": "1.0.0-llama-bench",
+    "commit": "8872ad2"
+  },
+  "system_info": {
+    "cpu_name": "AMD Ryzen 7 9800X3D 8-Core Processor",
+    "cpu_arch": "x86_64",
+    "ram_gb": 60.44,
+    "kernel_type": "Linux",
+    "kernel_release": "6.18.9-1-default",
+    "version": "#1 SMP PREEMPT_DYNAMIC Fri Feb  6 18:53:03 UTC 2026 (6d9f8a8)"
+  },
+  "accelerator_info": {
+    "name": "NVIDIA GeForce RTX 5070 Ti",
+    "manufacturer": "NVIDIA",
+    "memory_gb": 0.0,
+    "type": "GPU"
+  },
+  "results": [
+    {
+      "build_commit": "8872ad2",
+      "build_number": 1,
+      "model_name": "gemma3",
+      "model_quant_str": "Medium",
+      "model_params_str": "",
+      "model_filename": "/home/coulof/models/gemma-3-12b-it-Q4_K_M.gguf",
+      "model_type": "gemma3 12B Q4_K - Medium",
+      "model_size": 7294024704,
+      "model_n_params": 11765788416,
+      "n_prompt": 1024,
+      "n_gen": 16,
+      "test_time": "",
+      "avg_time_ms": 430.202733,
+      "stddev_time_ms": 0,
+      "prompt_tps": 4126.992292,
+      "prompt_tps_watt": 0.0,
+      "prompt_tps_stddev": 0.0,
+      "gen_tps": 87.873391,
+      "gen_tps_watt": 0.0,
+      "gen_tps_stddev": 0.0,
+      "name": "pp1024+tg16",
+      "power_watts": 0.0,
+      "ttft_ms": 259.5025951875,
+      "main_gpu": 0,
+      "samples_ns": [
+        248122586,
+        182080147
+      ]
+    },
+    {
+      "build_commit": "8872ad2",
+      "build_number": 1,
+      "model_name": "gemma3",
+      "model_quant_str": "Medium",
+      "model_params_str": "",
+      "model_filename": "/home/coulof/models/gemma-3-12b-it-Q4_K_M.gguf",
+      "model_type": "gemma3 12B Q4_K - Medium",
+      "model_size": 7294024704,
+      "model_n_params": 11765788416,
+      "n_prompt": 1024,
+      "n_gen": 1024,
+      "test_time": "",
+      "avg_time_ms": 12294.506332,
+      "stddev_time_ms": 0,
+      "prompt_tps": 4115.951763,
+      "prompt_tps_watt": 0.0,
+      "prompt_tps_stddev": 0.0,
+      "gen_tps": 85.00946,
+      "gen_tps_watt": 0.0,
+      "gen_tps_stddev": 0.0,
+      "name": "pp1024+tg1024",
+      "power_watts": 0.0,
+      "ttft_ms": 260.55154066796877,
+      "main_gpu": 0,
+      "samples_ns": [
+        248788144,
+        12045718188
+      ]
+    },
+    {
+      "build_commit": "8872ad2",
+      "build_number": 1,
+      "model_name": "gemma3",
+      "model_quant_str": "Medium",
+      "model_params_str": "",
+      "model_filename": "/home/coulof/models/gemma-3-12b-it-Q4_K_M.gguf",
+      "model_type": "gemma3 12B Q4_K - Medium",
+      "model_size": 7294024704,
+      "model_n_params": 11765788416,
+      "n_prompt": 16,
+      "n_gen": 1536,
+      "test_time": "",
+      "avg_time_ms": 18276.226497,
+      "stddev_time_ms": 0,
+      "prompt_tps": 925.057614,
+      "prompt_tps_watt": 0.0,
+      "prompt_tps_stddev": 0.0,
+      "gen_tps": 84.12322,
+      "gen_tps_watt": 0.0,
+      "gen_tps_stddev": 0.0,
+      "name": "pp16+tg1536",
+      "power_watts": 0.0,
+      "ttft_ms": 29.183544399088543,
+      "main_gpu": 0,
+      "samples_ns": [
+        17296220,
+        18258930277
+      ]
+    }
+  ],
+  "results_summary": {
+    "avg_prompt_tps": 3056.000556333333,
+    "avg_gen_tps": 85.66869033333334,
+    "avg_ttft_ms": 183.0792267515191,
+    "performance_score": 1126.6235601599142
+  }
+}

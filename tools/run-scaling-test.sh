@@ -80,7 +80,7 @@ run_bench() {
     python3 "$PLOT_SCRIPT" "$out_csv" \
         -o "$out_png" \
         -t "GPU Usage — $OUTPUT_NAME ($backend_label, $GPU_LABEL)" \
-        2>/dev/null
+        2>/dev/null || echo "⚠️  Chart generation failed (non-fatal)"
 
     echo "✅ $backend done: $out_json, $out_csv, $out_png"
 }
